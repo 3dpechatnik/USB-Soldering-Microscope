@@ -16,7 +16,7 @@ from app.ai.state_handler import (
     apply_tool_calls,
     extract_state_block,
 )
-from app.bot.tools import TOOLS
+from app.bot.tools import tools_for
 from app.config import settings
 from app.db import crud
 from app.db.engine import session_factory
@@ -117,10 +117,12 @@ async def run_turn(bot: Bot, chat_id: int, user_id: int, text: str) -> None:
             await bot.send_message(chat_id, AI_UNAVAILABLE)
 
 
-async def _ask_ai(messages: list[dict], model: str, temperature: float, max_tokens: int) -> AIResult:
+async def _ask_ai(
+    messages: list[dict], model: str, temperature: float, max_tokens: int, tools: list[dict]
+) -> AIResult:
     result = await deepseek.chat(
         messages, model=model, temperature=temperature, max_tokens=max_tokens,
-        tools=TOOLS, tool_choice="auto",
+        tools=tools, tool_choice="auto",
     )
     if result.tool_calls and not result.content:
         # Модель только вызвала функции: просим отдельно написать текст для игрока.
@@ -138,7 +140,7 @@ async def _ask_ai(messages: list[dict], model: str, temperature: float, max_toke
         try:
             second = await deepseek.chat(
                 follow, model=model, temperature=temperature, max_tokens=max_tokens,
-                tools=TOOLS, tool_choice="none",
+                tools=tools, tool_choice="none",
             )
             result.content = second.content
             result.finish_reason = second.finish_reason
@@ -157,11 +159,12 @@ async def _turn(bot: Bot, chat_id: int, user_id: int, text: str) -> None:
         ch = await crud.get_or_create_character(session, user_id)
         messages = await build_messages(session, user, ch, text, ai.max_history_messages)
         model, temperature, max_tokens = ai.model, ai.temperature, ai.max_tokens
+        tools = tools_for(ch.is_created)
         await session.commit()
 
     try:
         async with typing_indicator(bot, chat_id):
-            result = await _ask_ai(messages, model, temperature, max_tokens)
+            result = await _ask_ai(messages, model, temperature, max_tokens, tools)
     except DeepSeekError:
         await bot.send_message(chat_id, AI_UNAVAILABLE)
         return

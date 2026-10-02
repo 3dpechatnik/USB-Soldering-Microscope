@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     TRADING_KEYWORDS: str = (
         "рынок,торговец,торговк,лавка,магазин,кузниц,купец,базар,таверн,трактир,лавочник"
     )
+    ENCYCLOPEDIA_CONTEXT_LIMIT: int = 20
+    ENCYCLOPEDIA_PINNED: str = "Эпоха"
     XP_THRESHOLDS: str = (
         "0,300,900,2700,6500,14000,23000,34000,48000,64000,"
         "85000,100000,120000,140000,165000,195000,225000,265000,305000,355000"
@@ -93,6 +95,10 @@ class Settings(BaseSettings):
     @property
     def trading_keywords(self) -> list[str]:
         return [k.strip().lower() for k in self.TRADING_KEYWORDS.split(",") if k.strip()]
+
+    @property
+    def encyclopedia_pinned(self) -> set[str]:
+        return {k.strip() for k in self.ENCYCLOPEDIA_PINNED.split(",") if k.strip()}
 
     @property
     def xp_thresholds(self) -> list[int]:

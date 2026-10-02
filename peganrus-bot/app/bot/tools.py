@@ -37,25 +37,16 @@ UPDATE_STATE = {
                 "rations_delta": _int,
                 "oil_delta": _int,
                 "exhaustion_delta": _int,
-                "game_day_delta": _int,
-                "world_tension_delta": _int,
                 "hp": _int,
                 "max_hp": _int,
                 "level": _int,
                 "location": _str,
                 "weapon_name": _str,
                 "armor_name": _str,
-                "companion": {
-                    "type": ["object", "null"],
-                    "description": "null = no companion",
-                    "properties": {"name": _str, "hp": _int, "max_hp": _int, "loyalty": _int},
-                },
                 "inventory_add": _name_qty,
                 "inventory_remove": _name_qty,
                 "spells_add": _strs,
                 "spells_remove": _strs,
-                "spell_slots_update": _slots,
-                "reputation_delta": _items("faction", "delta", _int),
                 "encyclopedia_update": _items("name", "value", _str),
                 "in_combat": _bool,
                 "is_resting": _bool,
@@ -115,3 +106,8 @@ FINALIZE_CHARACTER = {
 }
 
 TOOLS = [UPDATE_STATE, FINALIZE_CHARACTER]
+
+
+def tools_for(character_created: bool) -> list[dict]:
+    """finalize_character_creation нужна только до создания персонажа — потом не шлём (экономия токенов)."""
+    return [UPDATE_STATE] if character_created else TOOLS

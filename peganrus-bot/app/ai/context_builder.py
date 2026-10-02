@@ -44,7 +44,7 @@ def render_character(ch: Character, inventory, reps, encyclopedia) -> str:
         f"STR {ch.strength} DEX {ch.dexterity} CON {ch.constitution} "
         f"INT {ch.intelligence} WIS {ch.wisdom} CHA {ch.charisma}",
         f"Gold {ch.gold}" + (f" Silver {ch.silver}" if ch.silver else ""),
-        f"XP {ch.xp}/{_next_level_xp(ch.level)}", f"Day {ch.game_day}",
+        f"XP {ch.xp}/{_next_level_xp(ch.level)}",
         f"Loc: {ch.location or 'unknown'}",
         f"Arrows {ch.arrows} Bolts {ch.bolts} Rations {ch.rations} Oil {ch.oil}",
         f"Exh {ch.exhaustion}",
@@ -52,7 +52,6 @@ def render_character(ch: Character, inventory, reps, encyclopedia) -> str:
     ]
     optional = [
         ("Spells: ", ", ".join(ch.spells or [])),
-        ("Slots: ", _slots(ch.spell_slots or {})),
         ("Companion: ", companion if ch.companion_name else ""),
         ("Rep: ", ", ".join(f"{r.faction_name} {r.reputation:+d}" for r in reps)),
         ("Tension ", str(ch.world_tension) if ch.world_tension else ""),
@@ -62,6 +61,15 @@ def render_character(ch: Character, inventory, reps, encyclopedia) -> str:
     return "[CHAR: " + "|".join(str(p) for p in parts) + "]"
 
 
+def limit_lore(entries: list) -> list:
+    """Закреплённые записи (например «Эпоха») всегда, из остальных — только последние N."""
+    pinned = settings.encyclopedia_pinned
+    fixed = [e for e in entries if e.entry_name in pinned]
+    rest = [e for e in entries if e.entry_name not in pinned]
+    limit = settings.ENCYCLOPEDIA_CONTEXT_LIMIT
+    return fixed + (rest[-limit:] if limit > 0 else [])
+
+
 async def character_line(session: AsyncSession, user: User, ch: Character) -> str:
     if not ch.is_created:
         return render_character(ch, [], [], [])
@@ -69,10 +77,14 @@ async def character_line(session: AsyncSession, user: User, ch: Character) -> st
     reps = (
         await session.scalars(select(FactionReputation).where(FactionReputation.user_id == user.id))
     ).all()
-    encyclopedia = (
-        await session.scalars(select(EncyclopediaEntry).where(EncyclopediaEntry.user_id == user.id))
+    entries = (
+        await session.scalars(
+            select(EncyclopediaEntry)
+            .where(EncyclopediaEntry.user_id == user.id)
+            .order_by(EncyclopediaEntry.id)
+        )
     ).all()
-    return render_character(ch, inventory, reps, encyclopedia)
+    return render_character(ch, inventory, reps, limit_lore(entries))
 
 
 async def build_messages(

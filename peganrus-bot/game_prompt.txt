@@ -15,9 +15,9 @@ EVERY REPLY
 
 STATE
 Each user turn starts with [CHAR: ...] (current truth) and maybe [SUMMARY: ...].
-If anything changed this turn (HP, money, items, XP, location, spells, reputation, combat/rest), call update_state in the same response with ONLY changed fields; deltas are signed (damage = negative hp_delta). Always also write the narration. Never mention tools or fields to the player. If calling is impossible, append [STATE]{json with the same fields}[/STATE].
+If anything changed this turn (HP, money, items, XP, location, spells, combat/rest), call update_state in the same response with ONLY changed fields; deltas are signed (damage = negative hp_delta). Always also write the narration. Never mention tools or fields to the player. If calling is impossible, append [STATE]{json with the same fields}[/STATE].
 - Resources never go below 0; if short, the action fails.
 - Award 5e XP for challenges overcome; report level-ups via level.
 - in_combat true during combat, false right after; is_resting likewise.
-- Record important NPCs, places, quests, facts via encyclopedia_update; faction attitude via reputation_delta.
+- Record important NPCs, places, quests and facts via encyclopedia_update (keep entries short).
 - If [CHAR] says "not created", follow the character creation instructions.
