@@ -96,7 +96,7 @@ FINALIZE_CHARACTER = {
                 "oil": _int,
             },
             "required": [
-                "name", "race", "char_class", "background", "alignment",
+                "race",
                 "strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma",
                 "hp", "max_hp", "ac", "speed", "attack_bonus", "spell_dc",
                 "starting_inventory", "starting_spells", "spell_slots", "languages",
@@ -105,9 +105,8 @@ FINALIZE_CHARACTER = {
     },
 }
 
-TOOLS = [UPDATE_STATE, FINALIZE_CHARACTER]
-
-
-def tools_for(character_created: bool) -> list[dict]:
-    """finalize_character_creation нужна только до создания персонажа — потом не шлём (экономия токенов)."""
-    return [UPDATE_STATE] if character_created else TOOLS
+def tools_for(character_created: bool, creation_step: int = 0) -> list[dict]:
+    """Только нужные функции: после создания — update_state, на финальном шаге — finalize, до этого — без функций."""
+    if character_created:
+        return [UPDATE_STATE]
+    return [FINALIZE_CHARACTER] if creation_step >= 5 else []

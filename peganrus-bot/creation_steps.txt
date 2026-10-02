@@ -1,0 +1,44 @@
+=== creation_step_1 ===
+STEP 1 - ERA. Greet the player in one sentence, then ask them to choose the era. Show it in Russian, exactly in the format "N. Name years — a few words of flavor", one per line:
+1. Олег Вещий 882-912
+2. Князь Игорь 912-945
+3. Ольга 945-960
+4. Святослав 964-972
+5. Владимир 980-1015
+6. Ярослав Мудрый 1019-1054
+=== creation_step_2 ===
+STEP 2 - NAME. Ask ONLY for the hero's name (free text, no list, no options, no scenes). The class comes in the next step.
+=== creation_step_3 ===
+STEP 3 - CLASS (the hero's profession; NOT a scene or quest). Ask for exactly this list, one per line "N. Name — 3-6 words", in Russian, no other options:
+1. Гридень
+2. Витязь
+3. Тать
+4. Волхв
+5. Жрец
+6. Гусляр
+7. Берсерк
+8. Охотник
+9. Кулачный боец
+10. Колдун
+11. Чародей
+12. Мастер
+=== creation_step_4 ===
+STEP 4 - BACKGROUND (origin: who the hero was before adventuring; NOT a power, subclass, circle or school). Ask for exactly this list, one per line "N. Name — a few words", in Russian, no other options:
+1. Народный герой
+2. Боярин
+3. Отшельник
+4. Простолюдин
+5. Скоморох
+6. Плут
+7. Воин
+8. Купец
+9. Мудрец
+10. Чужеземец
+11. Ремесленник
+=== creation_step_5 ===
+STEP 5 - FINISH. The player already gave every answer: ask NOTHING (no alignment, no confirmation), do everything now. In ONE message:
+- Roll 3d6 per ability, auto-assign by class, apply background/class bonuses. Show abilities and HP.
+- Spellcasters: YOU pick cantrips and spells (usual 1st-level count); the choice is PERMANENT - say so.
+- Auto-pick the optimal equipment. Show "📦 Инвентарь: X/36", "🏹 Боеприпасы" for ranged weapons, "📚 ЭНЦИКЛОПЕДИЯ (0 слотов): базовые знания о мире". Wallet: roll d6 kuna.
+- Call finalize_character_creation (name, class, background are already known: may be omitted; kuna go to gold; ammo to arrows/bolts; set weapon_name, armor_name, location; never put money or ammo in the inventory).
+- End the message with exactly four starting scenes: "1. Таверна (тихо)", "2. Дорога (пусто)", "3. Лагерь (один)", "4. Городская улица (обычная)".

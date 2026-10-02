@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     TRADING_KEYWORDS: str = (
         "рынок,торговец,торговк,лавка,магазин,кузниц,купец,базар,таверн,трактир,лавочник"
     )
+    CREATION_HISTORY: int = 2
     ENCYCLOPEDIA_CONTEXT_LIMIT: int = 20
     ENCYCLOPEDIA_PINNED: str = "Эпоха"
     XP_THRESHOLDS: str = (

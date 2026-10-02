@@ -123,6 +123,11 @@ class Character(Base):
     in_combat: Mapped[bool] = _bool(False)
     is_resting: Mapped[bool] = _bool(False)
     is_created: Mapped[bool] = _bool(False)
+    # Шаг создания персонажа: 0 - не начато, 1..4 - задан вопрос (эпоха, имя, класс, предыстория), 5 - финал.
+    creation_step: Mapped[int] = _int(0)
+    creation_data: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
     updated_at: Mapped[datetime] = _ts(server_default=func.now(), onupdate=func.now())
 
 

@@ -2,6 +2,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import creation
 from app.config import settings
 from app.db import crud
 from app.db.models import Character, EncyclopediaEntry, FactionReputation, User
@@ -11,6 +12,8 @@ def active_triggers(ch: Character) -> list[str]:
     triggers = ["always"]
     if not ch.is_created:
         triggers.append("character_creation")
+        if step := creation.step_trigger(ch):
+            triggers.append(step)
     if ch.in_combat:
         triggers.append("combat")
     if ch.is_resting:
@@ -32,7 +35,9 @@ def _slots(slots: dict) -> str:
 
 def render_character(ch: Character, inventory, reps, encyclopedia) -> str:
     if not ch.is_created:
-        return "[CHAR: not created]"
+        head = f"creating|step {ch.creation_step}/{creation.FINAL_STEP}"
+        picks = creation.picks_line(ch)
+        return f"[CHAR: {head}|{picks}]" if picks else f"[CHAR: {head}]"
     companion = (
         f"{ch.companion_name} HP {ch.companion_hp}/{ch.companion_max_hp} loyalty {ch.companion_loyalty}"
         if ch.companion_name
@@ -103,9 +108,11 @@ async def build_messages(
         {"role": "user", "content": context},
         {"role": "assistant", "content": settings.ASSISTANT_PRIMER},
     ]
+    if not ch.is_created:
+        max_history = creation.history_limit(max_history)
     for h in await crud.get_history(session, user.id, max_history):
         messages.append({"role": h.role, "content": h.content})
-    reminder = (await crud.get_text(session, "turn_reminder")).strip()
+    reminder = (await crud.get_text(session, "turn_reminder")).strip() if ch.is_created else ""
     messages.append({"role": "user", "content": f"{new_text}\n\n{reminder}" if reminder else new_text})
     return messages
 

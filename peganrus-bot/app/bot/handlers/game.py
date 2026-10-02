@@ -1,13 +1,12 @@
 import asyncio
 import contextlib
 import logging
-import re
 
 from aiogram import Bot, F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy import update
 
-from app.ai import deepseek
+from app.ai import creation, deepseek
 from app.ai.compressor import schedule_compression
 from app.ai.context_builder import build_messages
 from app.ai.deepseek import AIResult, DeepSeekError
@@ -28,16 +27,11 @@ router = Router()
 AI_UNAVAILABLE = "⚠️ AI временно недоступен. Попробуй ещё раз через минуту."
 TRUNCATED_NOTICE = "\n\n⚠️ [Ответ обрезан. Напиши «дальше»]"
 
-_OPTION_RE = re.compile(r"^\s*(\d{1,2})[.)]\s+(.+?)\s*$")
 _locks: dict[int, asyncio.Lock] = {}
 
 
 def parse_options(text: str) -> dict[int, str] | None:
-    found: dict[int, str] = {}
-    for line in text.splitlines():
-        m = _OPTION_RE.match(line)
-        if m:
-            found[int(m.group(1))] = m.group(2)
+    found = creation.parse_numbered(text)
     return found if set(found) == {1, 2, 3, 4} else None
 
 
@@ -122,7 +116,7 @@ async def _ask_ai(
 ) -> AIResult:
     result = await deepseek.chat(
         messages, model=model, temperature=temperature, max_tokens=max_tokens,
-        tools=tools, tool_choice="auto",
+        tools=tools or None, tool_choice="auto",
     )
     if result.tool_calls and not result.content:
         # Модель только вызвала функции: просим отдельно написать текст для игрока.
@@ -157,9 +151,10 @@ async def _turn(bot: Bot, chat_id: int, user_id: int, text: str) -> None:
             return
         ai = await crud.get_ai_settings(session)  # настройки читаются при КАЖДОМ запросе
         ch = await crud.get_or_create_character(session, user_id)
+        await creation.advance(session, user_id, ch, text)
         messages = await build_messages(session, user, ch, text, ai.max_history_messages)
         model, temperature, max_tokens = ai.model, ai.temperature, ai.max_tokens
-        tools = tools_for(ch.is_created)
+        tools = tools_for(ch.is_created, ch.creation_step)
         await session.commit()
 
     try:

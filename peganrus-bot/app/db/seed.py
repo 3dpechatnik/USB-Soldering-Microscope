@@ -1,6 +1,7 @@
 """Стартовые данные. Идемпотентно: существующие (уже отредактированные) записи не трогаем."""
 import asyncio
 import logging
+import re
 
 from sqlalchemy import select
 
@@ -12,6 +13,7 @@ log = logging.getLogger(__name__)
 
 GAME_PROMPT_FILE = BASE_DIR / "game_prompt.txt"
 MODULE_FILES = {"base": GAME_PROMPT_FILE, "character_creation": BASE_DIR / "character_creation.txt"}
+CREATION_STEPS_FILE = BASE_DIR / "creation_steps.txt"
 
 DEFAULT_TEXTS: dict[str, str] = {
     "text_privacy": (
@@ -73,6 +75,7 @@ DEFAULT_MODULES: list[tuple[str, str, int]] = [
     ("rest", "rest", 30),
     ("trading", "trading", 40),
 ]
+CREATION_STEP_MODULES = [(f"creation_step_{n}", f"creation_step_{n}", 10 + n) for n in range(1, 6)]
 
 
 def read_module_file(name: str) -> str:
@@ -83,6 +86,15 @@ def read_module_file(name: str) -> str:
         return path.read_text(encoding="utf-8").strip()
     log.warning("%s не найден — модуль %s будет пустым", path.name, name)
     return ""
+
+
+def read_creation_steps() -> dict[str, str]:
+    """creation_steps.txt: блоки '=== creation_step_N ===' -> {имя модуля: текст}."""
+    if not CREATION_STEPS_FILE.exists():
+        log.warning("creation_steps.txt не найден — шаги создания персонажа будут пустыми")
+        return {}
+    parts = re.split(r"^=== (\w+) ===\s*$", CREATION_STEPS_FILE.read_text(encoding="utf-8"), flags=re.M)
+    return {parts[i]: parts[i + 1].strip() for i in range(1, len(parts) - 1, 2)}
 
 
 def read_game_prompt() -> str:
@@ -104,10 +116,11 @@ async def seed() -> None:
                 )
             )
         existing = set((await session.scalars(select(PromptModule.name))).all())
-        for name, trigger, order in DEFAULT_MODULES:
+        steps = read_creation_steps()
+        for name, trigger, order in DEFAULT_MODULES + CREATION_STEP_MODULES:
             if name in existing:
                 continue
-            content = read_module_file(name)
+            content = steps.get(name) if name in steps else read_module_file(name)
             session.add(
                 PromptModule(
                     name=name, trigger_type=trigger, content=content, sort_order=order

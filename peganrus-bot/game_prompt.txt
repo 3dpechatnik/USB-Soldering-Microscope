@@ -20,4 +20,4 @@ If anything changed this turn (HP, money, items, XP, location, spells, combat/re
 - Award 5e XP for challenges overcome; report level-ups via level.
 - in_combat true during combat, false right after; is_resting likewise.
 - Record important NPCs, places, quests and facts via encyclopedia_update (keep entries short).
-- If [CHAR] says "not created", follow the character creation instructions.
+- If [CHAR] says "creating", follow the character creation instructions. After the player picks a starting scene, open calmly: no plot pressure or urgency until they act.

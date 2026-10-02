@@ -251,13 +251,16 @@ async def apply_finalize(
     if ch.is_created:
         log.info("finalize_character_creation повторно для user_id=%s — игнорируем", user_id)
         return False
-    name, race, char_class = _text(a.get("name"), 128), _text(a.get("race"), 64), _text(a.get("char_class"), 64)
+    picks = ch.creation_data or {}
+    name = _text(picks.get("name") or a.get("name"), 128)
+    race = _text(a.get("race"), 64)
+    char_class = _text(picks.get("class") or a.get("char_class"), 64)
     if not (name and race and char_class):
         log.warning("finalize без name/race/class: %r", a)
         return False
 
     ch.name, ch.race, ch.char_class = name, race, char_class
-    ch.background = _text(a.get("background"), 64)
+    ch.background = _text(picks.get("background") or a.get("background"), 64)
     ch.alignment = _text(a.get("alignment"), 32)
     for field in ("strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"):
         ch_val = _int(a.get(field), 10)
@@ -286,4 +289,6 @@ async def apply_finalize(
     ch.languages = [s for s in (_text(x, 64) for x in a.get("languages") or []) if s]
     ch.in_combat = ch.is_resting = False
     ch.is_created = True
+    if era := _text(picks.get("era"), 200):
+        await _encyclopedia(session, user_id, {"name": "Эпоха", "value": era})
     return True
