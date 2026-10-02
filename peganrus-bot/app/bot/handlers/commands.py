@@ -69,7 +69,7 @@ async def cmd_character(message: Message, user: User) -> None:
         f"❤️ HP {ch.hp}/{ch.max_hp} | 🛡 КД {ch.ac} | 👟 {ch.speed} | ⭐ XP {ch.xp}\n"
         f"СИЛ {ch.strength} ЛОВ {ch.dexterity} ТЕЛ {ch.constitution} "
         f"ИНТ {ch.intelligence} МДР {ch.wisdom} ХАР {ch.charisma}\n"
-        f"🪙 Золото {ch.gold} | Серебро {ch.silver}\n"
+        f"🪙 Куны {ch.gold}" + (f" | Серебро {ch.silver}" if ch.silver else "") + "\n"
         f"🏹 Стрелы {ch.arrows} | Болты {ch.bolts} | 🍖 Рационы {ch.rations} | 🛢 Масло {ch.oil}\n"
         f"😮‍💨 Истощение {ch.exhaustion}\n"
         f"⚔️ {ch.weapon_name or '—'} | 🛡 {ch.armor_name or '—'}\n"

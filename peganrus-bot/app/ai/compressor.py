@@ -47,9 +47,9 @@ async def _compress(user_id: int) -> bool:
 
     lines = []
     if previous:
-        lines.append(f"Предыдущее резюме: {previous.summary}")
+        lines.append(f"Previous summary: {previous.summary}")
     for h in history:
-        who = "Игрок" if h.role == "user" else "Мастер"
+        who = "Player" if h.role == "user" else "DM"
         lines.append(f"{who}: {h.content}")
 
     result = await deepseek.chat(

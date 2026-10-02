@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     COMPRESSION_KEEP_LAST: int = 5
     COMPRESSION_MAX_TOKENS: int = 500
     COMPRESSION_TEMPERATURE: float = 0.3
-    ASSISTANT_PRIMER: str = "Понял. Готов продолжить игру."
+    ASSISTANT_PRIMER: str = "Understood. Ready to continue the game."
     TRADING_KEYWORDS: str = (
         "рынок,торговец,торговк,лавка,магазин,кузниц,купец,базар,таверн,трактир,лавочник"
     )

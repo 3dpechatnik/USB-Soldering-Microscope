@@ -49,21 +49,20 @@ DEFAULT_TEXTS: dict[str, str] = {
         "Нажмите кнопку ниже, чтобы начать."
     ),
     "turn_reminder": (
-        "[Напоминание Мастеру: если в этом ходе изменились HP, деньги, предметы, опыт, локация, "
-        "заклинания, репутация или бой/отдых — ОБЯЗАТЕЛЬНО вызови update_state вместе с ответом. "
-        "Не выполняй действия за игрока и не придумывай ему предметы.]"
+        "[Reminder: if anything changed this turn, call update_state with the reply. "
+        "Never act or invent items for the player.]"
     ),
     "compression_prompt": (
-        "Сожми диалог D&D RPG в резюме 200 слов. Сохрани события, NPC, предметы, квесты."
+        "Compress this D&D RPG dialogue (merge with any previous summary) into a summary of at most "
+        "200 words, in Russian. Keep events, NPCs, items, quests, promises, places."
     ),
     "analyze_prompt": (
-        "Вот статистика RPG-бота за 7 и 30 дней:\n{stats}\n\n"
-        "Дай 3-5 конкретных рекомендации по улучшению: промпт, настройки AI, игровой баланс, "
-        "конверсия. Формат: проблема → рекомендация → ожидаемый эффект.\n\n"
-        "Если рекомендация касается числовой настройки AI, добавь отдельной строкой в конце "
-        "ответа маркер вида [SETTING temperature=0.6]. Допустимые ключи: temperature, "
-        "max_tokens, max_history_messages, compression_threshold. Не больше одного маркера "
-        "на ключ."
+        "RPG bot stats for 7 and 30 days:\n{stats}\n\n"
+        "Give 3-5 concrete recommendations (prompt, AI settings, game balance, conversion). "
+        "Format: problem -> recommendation -> expected effect. Answer in Russian. "
+        "For a numeric AI-setting recommendation add, on its own line at the end, a marker like "
+        "[SETTING temperature=0.6]. Allowed keys: temperature, max_tokens, max_history_messages, "
+        "compression_threshold; at most one marker per key."
     ),
 }
 
