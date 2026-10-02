@@ -87,7 +87,7 @@ async def chat(
     temperature: float,
     max_tokens: int,
     tools: list[dict] | None = None,
-    tool_choice: str | None = None,
+    tool_choice: str | dict | None = None,
 ) -> AIResult:
     """Один запрос к DeepSeek с повторами. Бросает DeepSeekError после всех неудач."""
     payload: dict = {

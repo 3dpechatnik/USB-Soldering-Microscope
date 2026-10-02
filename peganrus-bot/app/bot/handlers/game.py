@@ -112,12 +112,27 @@ async def run_turn(bot: Bot, chat_id: int, user_id: int, text: str) -> None:
 
 
 async def _ask_ai(
-    messages: list[dict], model: str, temperature: float, max_tokens: int, tools: list[dict]
+    messages: list[dict], model: str, temperature: float, max_tokens: int, tools: list[dict],
+    must_call: bool = False,
 ) -> AIResult:
     result = await deepseek.chat(
         messages, model=model, temperature=temperature, max_tokens=max_tokens,
         tools=tools or None, tool_choice="auto",
     )
+    if must_call and tools and not result.tool_calls and result.content:
+        # Финал создания персонажа: модель написала текст, но забыла вызвать функцию — вызываем принудительно.
+        forced = {"type": "function", "function": {"name": tools[0]["function"]["name"]}}
+        try:
+            second = await deepseek.chat(
+                messages + [{"role": "assistant", "content": result.content}],
+                model=model, temperature=temperature, max_tokens=max_tokens,
+                tools=tools, tool_choice=forced,
+            )
+            result.tool_calls = second.tool_calls
+            result.raw_message = second.raw_message
+            result.add_usage(second)
+        except DeepSeekError:
+            log.warning("Не удалось принудительно вызвать функцию создания персонажа")
     if result.tool_calls and not result.content:
         # Модель только вызвала функции: просим отдельно написать текст для игрока.
         follow = messages + [
@@ -144,6 +159,12 @@ async def _ask_ai(
     return result
 
 
+async def _send_scripted(bot: Bot, chat_id: int, reply: str) -> None:
+    """Ответ без ИИ: 0 токенов, счётчик сообщений не растёт."""
+    for chunk in split_message(reply):
+        await bot.send_message(chat_id, chunk)
+
+
 async def _turn(bot: Bot, chat_id: int, user_id: int, text: str) -> None:
     async with session_factory() as session:
         user = await session.get(User, user_id)
@@ -151,15 +172,20 @@ async def _turn(bot: Bot, chat_id: int, user_id: int, text: str) -> None:
             return
         ai = await crud.get_ai_settings(session)  # настройки читаются при КАЖДОМ запросе
         ch = await crud.get_or_create_character(session, user_id)
-        await creation.advance(session, user_id, ch, text)
+        scripted = await creation.scripted_reply(session, ch, text)
+        if scripted is not None:
+            await session.commit()
+            await _send_scripted(bot, chat_id, scripted)
+            return
         messages = await build_messages(session, user, ch, text, ai.max_history_messages)
         model, temperature, max_tokens = ai.model, ai.temperature, ai.max_tokens
         tools = tools_for(ch.is_created, ch.creation_step)
+        finishing = not ch.is_created
         await session.commit()
 
     try:
         async with typing_indicator(bot, chat_id):
-            result = await _ask_ai(messages, model, temperature, max_tokens, tools)
+            result = await _ask_ai(messages, model, temperature, max_tokens, tools, must_call=finishing)
     except DeepSeekError:
         await bot.send_message(chat_id, AI_UNAVAILABLE)
         return
@@ -180,6 +206,7 @@ async def _turn(bot: Bot, chat_id: int, user_id: int, text: str) -> None:
             log.exception("Не удалось применить состояние user_id=%s", user_id)
         log.info("user_id=%s применено: %s, токены: %s", user_id, applied, result.total_tokens)
 
+        scenes = await crud.get_text(session, "creation_scenes") if finishing and ch.is_created else ""
         session.add(MessageHistory(user_id=user_id, role="user", content=text))
         session.add(
             MessageHistory(
@@ -192,17 +219,24 @@ async def _turn(bot: Bot, chat_id: int, user_id: int, text: str) -> None:
                 cache_hit_tokens=result.cache_hit_tokens,
             )
         )
+        if scenes:
+            session.add(MessageHistory(user_id=user_id, role="assistant", content=scenes))
         await session.execute(
             update(User).where(User.id == user_id).values(messages_today=User.messages_today + 1)
         )
         await session.commit()
 
     shown = reply + (TRUNCATED_NOTICE if result.finish_reason == "length" else "")
-    options = parse_options(reply)
+    options = None if scenes else parse_options(reply)
     chunks = split_message(shown)
     for i, chunk in enumerate(chunks):
         markup = options_keyboard(options) if options and i == len(chunks) - 1 else None
         await bot.send_message(chat_id, chunk, reply_markup=markup)
+    if scenes:
+        scene_options = parse_options(scenes)
+        await bot.send_message(
+            chat_id, scenes, reply_markup=options_keyboard(scene_options) if scene_options else None
+        )
 
     schedule_compression(user_id)
 

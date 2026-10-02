@@ -1,5 +1,5 @@
-"""Пошаговое создание персонажа: код сам определяет шаг и запоминает выбор игрока,
-поэтому в запрос попадает только инструкция текущего шага."""
+"""Пошаговое создание персонажа: шаги 1-4 (эпоха, имя, класс, предыстория) целиком ведёт код
+без ИИ, ИИ подключается только на финале (характеристики, снаряжение, finalize)."""
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,20 +53,28 @@ def resolve_answer(step: int, text: str, last_assistant: str) -> str | None:
     return None
 
 
-async def advance(session: AsyncSession, user_id: int, ch: Character, text: str) -> None:
-    """Вызывается ДО запроса к ИИ: фиксирует ответ игрока и выбирает шаг для запроса."""
-    if ch.is_created:
-        return
+async def scripted_reply(session: AsyncSession, ch: Character, text: str) -> str | None:
+    """Шаги 0-4 ведёт код: вопросы лежат в БД (тексты creation_q1..4), ИИ не вызывается.
+    Возвращает готовый ответ игроку или None, когда пора звать ИИ (финал, шаг 5)."""
+    if ch.is_created or ch.creation_step >= FINAL_STEP:
+        return None
     step = ch.creation_step
     if step == 0:
         ch.creation_step = 1
-        return
-    if step in PICK_KEYS:
-        last = await crud.last_assistant_message(session, user_id) or ""
-        value = resolve_answer(step, text, last)
-        if value:
-            ch.creation_data = {**(ch.creation_data or {}), PICK_KEYS[step]: value}
-            ch.creation_step = step + 1
+        return await crud.get_text(session, "creation_q1")
+    question = await crud.get_text(session, f"creation_q{step}")
+    value = resolve_answer(step, text, question)
+    if step == 2 and value and value.isdigit():
+        value = None
+    if not value:
+        retry = await crud.get_text(session, "creation_retry")
+        return f"{retry}\n\n{question}"
+    ch.creation_data = {**(ch.creation_data or {}), PICK_KEYS[step]: value}
+    ch.creation_step = step + 1
+    if ch.creation_step >= FINAL_STEP:
+        return None
+    nxt = await crud.get_text(session, f"creation_q{ch.creation_step}")
+    return f"Принято: {value}.\n\n{nxt}"
 
 
 def picks_line(ch: Character) -> str:
@@ -75,9 +83,7 @@ def picks_line(ch: Character) -> str:
 
 
 def step_trigger(ch: Character) -> str | None:
-    if 1 <= ch.creation_step <= FINAL_STEP:
-        return f"creation_step_{ch.creation_step}"
-    return None
+    return f"creation_step_{FINAL_STEP}" if ch.creation_step >= FINAL_STEP else None
 
 
 def history_limit(default: int) -> int:
