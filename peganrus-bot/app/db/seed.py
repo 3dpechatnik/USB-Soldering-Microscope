@@ -11,6 +11,7 @@ from app.db.models import AISettings, PromptModule
 log = logging.getLogger(__name__)
 
 GAME_PROMPT_FILE = BASE_DIR / "game_prompt.txt"
+MODULE_FILES = {"base": GAME_PROMPT_FILE, "character_creation": BASE_DIR / "character_creation.txt"}
 
 DEFAULT_TEXTS: dict[str, str] = {
     "text_privacy": (
@@ -75,11 +76,18 @@ DEFAULT_MODULES: list[tuple[str, str, int]] = [
 ]
 
 
-def read_game_prompt() -> str:
-    if GAME_PROMPT_FILE.exists():
-        return GAME_PROMPT_FILE.read_text(encoding="utf-8").strip()
-    log.warning("game_prompt.txt не найден — модуль base будет пустым")
+def read_module_file(name: str) -> str:
+    path = MODULE_FILES.get(name)
+    if path is None:
+        return ""
+    if path.exists():
+        return path.read_text(encoding="utf-8").strip()
+    log.warning("%s не найден — модуль %s будет пустым", path.name, name)
     return ""
+
+
+def read_game_prompt() -> str:
+    return read_module_file("base")
 
 
 async def seed() -> None:
@@ -100,7 +108,7 @@ async def seed() -> None:
         for name, trigger, order in DEFAULT_MODULES:
             if name in existing:
                 continue
-            content = read_game_prompt() if name == "base" else ""
+            content = read_module_file(name)
             session.add(
                 PromptModule(
                     name=name, trigger_type=trigger, content=content, sort_order=order

@@ -97,7 +97,7 @@ FINALIZE_CHARACTER = {
     "function": {
         "name": "finalize_character_creation",
         "description": (
-            "Вызывается ОДИН раз после подтверждения игроком листа персонажа на шаге 7."
+            "Вызывается ОДИН раз, когда пройдены все шаги создания персонажа."
         ),
         "parameters": {
             "type": "object",

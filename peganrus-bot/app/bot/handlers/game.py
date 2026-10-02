@@ -28,7 +28,7 @@ router = Router()
 AI_UNAVAILABLE = "⚠️ AI временно недоступен. Попробуй ещё раз через минуту."
 TRUNCATED_NOTICE = "\n\n⚠️ [Ответ обрезан. Напиши «дальше»]"
 
-_OPTION_RE = re.compile(r"^\s*([1-4])[.)]\s+(.+?)\s*$")
+_OPTION_RE = re.compile(r"^\s*(\d{1,2})[.)]\s+(.+?)\s*$")
 _locks: dict[int, asyncio.Lock] = {}
 
 
