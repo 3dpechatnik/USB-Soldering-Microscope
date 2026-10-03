@@ -6,6 +6,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+if [ -x /opt/peganrus-venv/bin/python ] && [ ! -e "$ROOT/.venv" ]; then
+  ln -sfn /opt/peganrus-venv "$ROOT/.venv"
+fi
+
 sudo service postgresql start
 for _ in $(seq 1 30); do
   if pg_isready -q; then

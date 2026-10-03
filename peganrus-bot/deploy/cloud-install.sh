@@ -11,9 +11,17 @@ sudo apt-get install -y postgresql postgresql-contrib python3-venv python3-dev b
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+# Keep the virtualenv outside the checkout so a default-branch build snapshot
+# still has the bot dependencies after git replaces /workspace.
+sudo mkdir -p /opt/peganrus-venv
+sudo chown -R "$(id -un)":"$(id -gn)" /opt/peganrus-venv
+python3 -m venv /opt/peganrus-venv
+/opt/peganrus-venv/bin/pip install --upgrade pip
+/opt/peganrus-venv/bin/pip install -r requirements.txt
+if [ -d .venv ] && [ ! -L .venv ]; then
+  rm -rf .venv
+fi
+ln -sfn /opt/peganrus-venv .venv
 
 sudo service postgresql start
 for _ in $(seq 1 30); do
