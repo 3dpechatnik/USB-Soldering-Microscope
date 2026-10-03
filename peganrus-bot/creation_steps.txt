@@ -1,0 +1,7 @@
+=== creation_step_5 ===
+FINISH CREATION. The player already made all choices (see [CHAR]); ask NOTHING (no alignment, no confirmation, no scenes), do everything now in ONE message:
+- Roll 3d6 per ability, auto-assign by class, apply background/class bonuses. Show abilities and HP.
+- Spellcasters: YOU pick cantrips and spells (usual 1st-level count); the choice is PERMANENT - say so.
+- Auto-pick the optimal equipment. Show "📦 Инвентарь: X/36", "🏹 Боеприпасы" for ranged weapons, "📚 ЭНЦИКЛОПЕДИЯ (0 слотов): базовые знания о мире". Wallet: roll d6 kuna.
+- Call finalize_character_creation (name, class, background are already known and may be omitted; kuna go to gold; ammo to arrows/bolts; set weapon_name, armor_name, location; never put money or ammo in the inventory).
+- STOP right after the wallet line: no scene, no narration of the world, no options, no questions (the game offers starting scenes itself).
