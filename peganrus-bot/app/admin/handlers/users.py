@@ -68,7 +68,7 @@ async def user_card(session, user: User) -> str:
         f"Персонаж: {character}\n"
         f"Сообщений ({'за всё время trial' if user.subscription_status == 'trial' else 'сегодня'}): "
         f"{user.messages_today}\n"
-        f"Автопродление: {'вкл' if user.auto_renew else 'выкл'}\n"
+        "Автосписания: нет\n"
         f"Бан: {ban}\n"
         f"Регистрация: {user.created_at.astimezone(settings.tz):%d.%m.%Y %H:%M}"
     )

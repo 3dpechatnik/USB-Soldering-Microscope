@@ -17,8 +17,8 @@ FREE_GAME_CALLBACKS = {"game:custom"}
 
 def subscribe_hint() -> str:
     return (
-        f"💳 Подписка — {settings.SUBSCRIPTION_PRICE} ₽ в месяц, "
-        f"{settings.DAILY_LIMIT_PAID} сообщений в день.\nОформить: /subscribe"
+        f"💳 Подписка — {settings.SUBSCRIPTION_PRICE} ₽ на {settings.SUBSCRIPTION_DAYS} дней, "
+        f"{settings.DAILY_LIMIT_PAID} сообщений в день. Автосписаний нет.\nОформить: /subscribe"
     )
 
 

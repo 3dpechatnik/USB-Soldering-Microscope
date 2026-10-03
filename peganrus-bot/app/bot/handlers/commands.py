@@ -14,8 +14,14 @@ def fmt_date(dt) -> str:
     return dt.astimezone(settings.tz).strftime("%d.%m.%Y")
 
 
+def _price_line() -> str:
+    return (
+        f"Подписка: {settings.SUBSCRIPTION_PRICE} ₽ на {settings.SUBSCRIPTION_DAYS} дней, "
+        "без автосписания — /subscribe"
+    )
+
+
 def status_text(user: User) -> str:
-    on_off = "включено" if user.auto_renew else "выключено"
     if user.is_tester:
         return "🧪 Статус: тестер\nСообщения: без ограничений"
 
@@ -31,15 +37,15 @@ def status_text(user: User) -> str:
         return (
             f"💳 Подписка активна до {fmt_date(user.subscription_expires_at)}\n"
             f"Сообщений на сегодня осталось: {left} из {settings.DAILY_LIMIT_PAID}\n"
-            f"Автопродление: {on_off}"
+            "Автосписаний нет"
         )
     if status == "trial":
         left = max(settings.LIMIT_TRIAL - user.messages_today, 0)
         return (
             f"⏳ Пробный период\nСообщений осталось: {left} из {settings.LIMIT_TRIAL}\n\n"
-            f"Подписка: {settings.SUBSCRIPTION_PRICE} ₽/мес — /subscribe"
+            f"{_price_line()}"
         )
-    return f"⌛ Подписка не активна.\n\nПодписка: {settings.SUBSCRIPTION_PRICE} ₽/мес — /subscribe"
+    return f"⌛ Подписка не активна.\n\n{_price_line()}"
 
 
 @router.message(Command("help"))

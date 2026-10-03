@@ -36,8 +36,10 @@ class Settings(BaseSettings):
     ROBOKASSA_PASSWORD1: str = ""
     ROBOKASSA_PASSWORD2: str = ""
 
-    SUBSCRIPTION_PRICE: int = 400
-    SUBSCRIPTION_DAYS: int = 30
+    SUBSCRIPTION_PRICE: int = 100
+    SUBSCRIPTION_DAYS: int = 7
+    TERMS_URL: str = "https://telegra.ph/Polzovatelskoe-soglashenie-10-03-39"
+    PRIVACY_URL: str = "https://telegra.ph/Politika-konfidencialnosti-10-03-74"
     LIMIT_TRIAL: int = 30
     DAILY_LIMIT_PAID: int = 100
 

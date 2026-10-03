@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.config import settings
+from app.db import crud
 from app.db.engine import session_factory
 from app.db.models import Payment, User
 from app.payments import robokassa
@@ -10,70 +11,101 @@ from app.payments import robokassa
 router = Router()
 
 
-def _kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"💳 Оплатить на месяц — {settings.SUBSCRIPTION_PRICE} ₽", callback_data="sub:once")],
-            [InlineKeyboardButton(text="🔁 С автопродлением", callback_data="sub:auto")],
-        ]
-    )
-
-
 def _offer_text() -> str:
     return (
         f"💳 Подписка на {settings.SUBSCRIPTION_DAYS} дней — {settings.SUBSCRIPTION_PRICE} ₽\n"
         f"• до {settings.DAILY_LIMIT_PAID} сообщений в день\n"
-        "• автопродление по желанию (по умолчанию выключено)"
+        "• разовый платёж, без автопродления и без повторных списаний"
     )
 
 
-async def _start_payment(user_id: int, recurring: bool) -> str:
+def _pay_kb(url: str, payment_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"💳 Оплатить {settings.SUBSCRIPTION_PRICE} ₽", url=url)],
+            [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"sub:check:{payment_id}")],
+        ]
+    )
+
+
+async def _start_payment(user_id: int) -> tuple[str, InlineKeyboardMarkup | None]:
+    if not robokassa.is_configured():
+        return "🛠 Онлайн-оплата пока не подключена. Мы сообщим, как только она заработает.", None
     async with session_factory() as session:
         payment = Payment(
             user_id=user_id,
             amount=settings.SUBSCRIPTION_PRICE,
             status="pending",
-            type="auto_renew" if recurring else "one_time",
+            type="one_time",
         )
-        link = await robokassa.create_invoice(user_id, settings.SUBSCRIPTION_PRICE, recurring)
-        if link is None:
-            return "🛠 Онлайн-оплата пока не подключена. Мы сообщим, как только она заработает."
         session.add(payment)
+        await session.flush()
+        url = robokassa.build_payment_url(payment.id, settings.SUBSCRIPTION_PRICE)
+        payment.robokassa_invoice_id = str(payment.id)
         await session.commit()
-    return f"Ссылка для оплаты:\n{link}"
+        payment_id = payment.id
+    return "Оплатите подписку по кнопке. После оплаты нажмите «Я оплатил» — бот проверит платёж.", _pay_kb(
+        url, payment_id
+    )
 
 
-@router.message(Command("subscribe"))
-async def cmd_subscribe(message: Message) -> None:
-    await message.answer(_offer_text(), reply_markup=_kb())
+async def _confirm(user: User, payment_id: int) -> str:
+    async with session_factory() as session:
+        payment = await session.get(Payment, payment_id)
+        if payment is None or payment.user_id != user.id:
+            return "Счёт не найден. Оформите оплату заново: /subscribe"
+        if payment.status == "succeeded":
+            return f"Этот платёж уже засчитан. Подписка действует {settings.SUBSCRIPTION_DAYS} дней."
+        try:
+            state = await robokassa.fetch_state(payment.id)
+        except Exception:
+            return "Не удалось связаться с Робокассой. Подождите минуту и нажмите «Я оплатил» ещё раз."
+        if not state.paid:
+            if state.pending:
+                return "Оплата ещё не дошла. Если вы только что заплатили, подождите минуту и нажмите «Я оплатил» снова."
+            return "Робокасса не подтвердила оплату. Если деньги списались, напишите в поддержку и пришлите чек."
+        db_user = await session.get(User, user.id)
+        db_user.auto_renew = False
+        db_user.payment_method_id = None
+        crud.grant_subscription(db_user)
+        db_user.last_payment_at = crud.utcnow()
+        payment.status = "succeeded"
+        payment.paid_at = crud.utcnow()
+        await session.commit()
+        until = db_user.subscription_expires_at.astimezone(settings.tz).strftime("%d.%m.%Y")
+    return (
+        f"✅ Оплата получена. Подписка активна до {until}.\n"
+        f"Это разовый платёж на {settings.SUBSCRIPTION_DAYS} дней, повторно ничего не спишется."
+    )
 
 
-@router.message(Command("subscribe_once"))
-async def cmd_subscribe_once(message: Message, user: User) -> None:
-    await message.answer(await _start_payment(user.id, recurring=False))
+@router.message(Command("subscribe", "subscribe_once"))
+async def cmd_subscribe(message: Message, user: User) -> None:
+    text, kb = await _start_payment(user.id)
+    await message.answer(text if kb else f"{_offer_text()}\n\n{text}", reply_markup=kb)
 
 
-@router.message(Command("subscribe_auto"))
-async def cmd_subscribe_auto(message: Message, user: User) -> None:
-    await message.answer(await _start_payment(user.id, recurring=True))
+@router.message(Command("subscribe_auto", "autorenew"))
+async def cmd_no_autorenew(message: Message) -> None:
+    await message.answer(
+        "Автоматических списаний нет.\n"
+        f"Подписка только разовая: {settings.SUBSCRIPTION_PRICE} ₽ на {settings.SUBSCRIPTION_DAYS} дней.\n"
+        "Оформить: /subscribe"
+    )
 
 
-@router.callback_query(F.data.in_({"sub:once", "sub:auto"}))
+@router.callback_query(F.data == "sub:once")
 async def cb_subscribe(cb: CallbackQuery, user: User) -> None:
     await cb.answer()
-    await cb.message.answer(await _start_payment(user.id, recurring=cb.data == "sub:auto"))
+    text, kb = await _start_payment(user.id)
+    await cb.message.answer(text, reply_markup=kb)
 
 
-@router.message(Command("autorenew"))
-async def cmd_autorenew(message: Message, user: User) -> None:
-    async with session_factory() as session:
-        db_user = await session.get(User, user.id)
-        db_user.auto_renew = not db_user.auto_renew
-        enabled = db_user.auto_renew
-        has_method = bool(db_user.payment_method_id)
-        await session.commit()
-    if enabled:
-        extra = "" if has_method else "\nСпособ оплаты будет привязан при следующей оплате подписки."
-        await message.answer(f"🔁 Автопродление включено.{extra}\nОтключить: /autorenew")
-    else:
-        await message.answer("⏹ Автопродление выключено.")
+@router.callback_query(F.data.startswith("sub:check:"))
+async def cb_check(cb: CallbackQuery, user: User) -> None:
+    raw = (cb.data or "").rsplit(":", 1)[-1]
+    if not raw.isdigit():
+        await cb.answer("Счёт не найден", show_alert=True)
+        return
+    await cb.answer("Проверяю оплату…")
+    await cb.message.answer(await _confirm(user, int(raw)))
