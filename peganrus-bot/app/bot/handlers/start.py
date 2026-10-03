@@ -2,6 +2,7 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from app.config import settings
 from app.db import crud
 from app.db.engine import session_factory
 from app.db.models import User
@@ -9,10 +10,27 @@ from app.db.models import User
 router = Router()
 
 
+def _doc_rows() -> list[list[InlineKeyboardButton]]:
+    rows: list[list[InlineKeyboardButton]] = []
+    if settings.TERMS_URL:
+        rows.append([InlineKeyboardButton(text="📄 Пользовательское соглашение", url=settings.TERMS_URL)])
+    if settings.PRIVACY_URL:
+        rows.append([InlineKeyboardButton(text="🔒 Политика конфиденциальности", url=settings.PRIVACY_URL)])
+    return rows
+
+
 def _agree_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="✅ Мне есть 18, согласен(на)", callback_data="agree")]]
+        inline_keyboard=[
+            *_doc_rows(),
+            [InlineKeyboardButton(text="✅ Мне есть 18, согласен(на)", callback_data="agree")],
+        ]
     )
+
+
+def _docs_kb() -> InlineKeyboardMarkup | None:
+    rows = _doc_rows()
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
 
 
 def _play_kb(text: str) -> InlineKeyboardMarkup:
@@ -70,4 +88,4 @@ async def cb_agree(cb: CallbackQuery, user: User) -> None:
 
 @router.message(Command("privacy"))
 async def cmd_privacy(message: Message) -> None:
-    await message.answer(await _privacy_text())
+    await message.answer(await _privacy_text(), reply_markup=_docs_kb())

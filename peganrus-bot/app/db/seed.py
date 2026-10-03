@@ -1,4 +1,4 @@
-"""Стартовые данные. Идемпотентно: существующие (уже отредактированные) записи не трогаем."""
+"""Стартовые данные. Существующие модули не перезаписываем, кроме text_privacy и text_help."""
 import asyncio
 import logging
 import re
@@ -69,18 +69,18 @@ DEFAULT_TEXTS: dict[str, str] = {
         "4. Городская улица (обычная)"
     ),
     "text_privacy": (
-        "🔞 Бот «Подземелье и Горынычи» — игра для совершеннолетних (18+).\n\n"
+        "🔞 Бот «Подземелье и Горынычи» (@peganrus_bot) — игра для совершеннолетних (18+).\n\n"
         "Что нужно знать:\n"
         "• Игру ведёт искусственный интеллект. Тексты генерируются автоматически и "
         "могут содержать ошибки, мрачные и жестокие сюжеты в рамках фэнтези.\n"
         "• Мы храним: ваш Telegram ID, имя, username, данные персонажа, историю игровых "
         "сообщений и данные об оплате. Тексты ваших сообщений передаются сервису "
-        "DeepSeek для генерации ответа.\n"
-        "• Данные нужны только для работы игры, не продаются и не передаются третьим лицам, "
-        "кроме сервисов, без которых игра не работает (ИИ и платёжная система).\n"
-        "• Вы можете в любой момент полностью удалить свои данные командой /delete_account.\n\n"
+        "DeepSeek для генерации ответа. Оплата идёт через Robokassa, номер карты бот не видит.\n"
+        "• Подписка — разовый платёж 100 ₽ на 7 дней. Автоматических списаний нет.\n"
+        "• Полный текст: пользовательское соглашение и политика конфиденциальности — кнопками ниже.\n"
+        "• Вы можете удалить свои данные командой /delete_account.\n\n"
         "Нажимая «Согласен», вы подтверждаете, что вам исполнилось 18 лет и вы принимаете "
-        "эти условия."
+        "соглашение и политику конфиденциальности."
     ),
     "text_help": (
         "🐉 «Подземелье и Горынычи» — текстовая D&D-игра с ИИ-Мастером.\n\n"
@@ -90,9 +90,8 @@ DEFAULT_TEXTS: dict[str, str] = {
         "/status — подписка и лимиты\n"
         "/character — лист персонажа\n"
         "/inventory — инвентарь\n"
-        "/subscribe — оформить подписку\n"
-        "/autorenew — вкл/выкл автопродление\n"
-        "/privacy — условия и конфиденциальность\n"
+        "/subscribe — подписка 100 ₽ на 7 дней, без автосписания\n"
+        "/privacy — соглашение и конфиденциальность\n"
         "/delete_account — удалить аккаунт и все данные\n"
         "/help — эта справка"
     ),
@@ -178,11 +177,18 @@ async def seed() -> None:
                     name=name, trigger_type=trigger, content=content, sort_order=order
                 )
             )
+        refresh = {"text_privacy", "text_help"}
         for name, content in DEFAULT_TEXTS.items():
-            if name not in existing:
-                session.add(
-                    PromptModule(name=name, trigger_type="manual", content=content, sort_order=100)
-                )
+            if name in existing and name not in refresh:
+                continue
+            if name in existing:
+                row = await session.scalar(select(PromptModule).where(PromptModule.name == name))
+                if row is not None:
+                    row.content = content
+                continue
+            session.add(
+                PromptModule(name=name, trigger_type="manual", content=content, sort_order=100)
+            )
         await session.commit()
 
 
