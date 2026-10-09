@@ -120,6 +120,12 @@ class FlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.db.active_choice(5)["last_note"])
         self.assertEqual(self.db.recent_efforts(5), [])
 
+        calls = self.ai.calls
+        screen = await self.send(RU["btn_train"])
+        self.assertIn("time:evening", [item[0] for item in screen.actions])
+        self.assertIn("Выбери час", screen.text)
+        self.assertEqual(self.ai.calls, calls)
+
         self.db.conn.execute("UPDATE choices SET hours=21 WHERE tg_id=5")
         self.db.conn.commit()
         screen = await self.send(RU["btn_train"])

@@ -507,7 +507,21 @@ class Service:
             )
             user = self.db.user(user["tg_id"])
             if autostart:
-                return await self._begin(user)
+                choice = self.db.active_choice(user["tg_id"])
+                if choice is None:
+                    return await self._calm(user)
+                reason = block_reason(
+                    self.is_admin(user["tg_id"]),
+                    self.db.total_hours(user["tg_id"]),
+                    "new_workout",
+                )
+                if reason:
+                    actions = [
+                        ("go:train", await self._t(user, "btn_train")),
+                        ("go:menu", await self._t(user, "btn_menu")),
+                    ]
+                    return await self._pay(user, reason, actions)
+                return await self._generate(user, choice)
             if self.db.active_session(user["tg_id"]):
                 return await self._card(user)
             return await self._menu(user)
@@ -586,9 +600,6 @@ class Service:
         choice = self.db.active_choice(user["tg_id"])
         if choice is None:
             return await self._calm(user)
-        if not user["time_of_day"]:
-            self.db.update_user(user["tg_id"], awaiting_first_time=1)
-            return await self._time(self.db.user(user["tg_id"]))
         existing = self.db.active_session(user["tg_id"])
         if existing:
             return await self._card(user, existing)
@@ -601,7 +612,8 @@ class Service:
                 ("go:menu", await self._t(user, "btn_menu")),
             ]
             return await self._pay(user, reason, actions)
-        return await self._generate(user, choice)
+        self.db.update_user(user["tg_id"], awaiting_first_time=1)
+        return await self._time(self.db.user(user["tg_id"]))
 
     async def _generate(self, user: dict, choice: dict) -> Screen:
         time_of_day = user["time_of_day"]
