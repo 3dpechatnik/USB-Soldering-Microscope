@@ -32,58 +32,132 @@ MENU_EN = [
 ]
 
 
+# Source address on the server prefix 2a04:bac0:1000:4f8::/64.
+# Used only when Telegram over IPv4 does not connect.
+TELEGRAM_IPV6_SOURCE = "2a04:bac0:1000:4f8::1"
+_V4_HOLD = 180.0
+
+
 class TelegramIPv4(httpcore.AsyncNetworkBackend):
-    """Dial Telegram by IPv4 and move to the next address when one does not connect."""
+    """Dial Telegram by IPv4. If that family is down, use the server IPv6 address."""
 
-    def __init__(self) -> None:
+    def __init__(self, ipv6_source: str = TELEGRAM_IPV6_SOURCE) -> None:
         self._inner = httpcore.AnyIOBackend()
-        self._ips: list[str] = []
-        self._index = 0
+        self._v4: list[str] = []
+        self._v6: list[str] = []
+        self._v4_index = 0
+        self._v6_index = 0
         self._refreshed = 0.0
+        self._v4_down_until = 0.0
+        self._on_v6 = False
+        self._ipv6_source = ipv6_source
 
-    async def _load_ips(self) -> None:
-        now = time.monotonic()
-        if self._ips and now - self._refreshed < 600:
-            return
+    async def _resolve(self, family: int) -> list[str] | None:
         loop = asyncio.get_running_loop()
         try:
             found = await asyncio.wait_for(
                 loop.getaddrinfo(
                     "api.telegram.org",
                     443,
-                    family=socket.AF_INET,
+                    family=family,
                     type=socket.SOCK_STREAM,
                 ),
                 timeout=2,
             )
         except Exception:
-            return
+            return None
         ips: list[str] = []
         for item in found:
             ip = item[4][0]
             if ip not in ips:
                 ips.append(ip)
-        if ips:
-            self._ips = ips
-            self._index %= len(ips)
+        return ips
+
+    async def _load_ips(self) -> None:
+        now = time.monotonic()
+        if (self._v4 or self._v6) and now - self._refreshed < 600:
+            return
+        v4 = await self._resolve(socket.AF_INET)
+        v6 = await self._resolve(socket.AF_INET6)
+        if v4 is not None:
+            self._v4 = v4
+            if v4:
+                self._v4_index %= len(v4)
+        if v6 is not None:
+            self._v6 = v6
+            if v6:
+                self._v6_index %= len(v6)
+        if v4 is not None or v6 is not None:
             self._refreshed = now
+
+    async def _dial(self, ips: list[str], index_name: str, local: str, port, each, socket_options, attempts: int):
+        last: Exception | None = None
+        for _ in range(min(attempts, len(ips))):
+            index = getattr(self, index_name) % len(ips)
+            ip = ips[index]
+            try:
+                stream = await self._inner.connect_tcp(ip, port, each, local, socket_options)
+            except Exception as exc:
+                last = exc
+                setattr(self, index_name, index + 1)
+                continue
+            return stream
+        assert last is not None
+        raise last
 
     async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
         local = local_address or "0.0.0.0"
         if host != "api.telegram.org":
             return await self._inner.connect_tcp(host, port, timeout, local, socket_options)
         await self._load_ips()
-        if not self._ips:
+        if not self._v4 and not self._v6:
             return await self._inner.connect_tcp(host, port, timeout, local, socket_options)
-        last: Exception | None = None
         each = 4.0 if timeout is None else min(4.0, float(timeout))
-        for _ in range(min(3, len(self._ips))):
-            ip = self._ips[self._index % len(self._ips)]
+        # Leave room for the IPv6 backup inside the 15s send budget.
+        v4_each = min(each, 2.0) if self._v6 else each
+        v4_attempts = 2 if self._v6 else 3
+        now = time.monotonic()
+        v4_first = now >= self._v4_down_until or not self._v6
+        last: Exception | None = None
+        if v4_first and self._v4:
             try:
-                return await self._inner.connect_tcp(ip, port, each, local, socket_options)
+                stream = await self._dial(
+                    self._v4, "_v4_index", "0.0.0.0", port, v4_each, socket_options, v4_attempts
+                )
             except Exception as exc:
                 last = exc
-                self._index += 1
+            else:
+                if self._on_v6:
+                    log.warning("telegram ipv4 is back")
+                self._on_v6 = False
+                self._v4_down_until = 0.0
+                return stream
+        if self._v6:
+            try:
+                stream = await self._dial(
+                    self._v6, "_v6_index", self._ipv6_source, port, each, socket_options, 2
+                )
+            except Exception as exc:
+                last = exc
+                self._v4_down_until = 0.0
+            else:
+                if not self._on_v6:
+                    log.warning("telegram ipv4 down, backup ipv6 %s", self._ipv6_source)
+                self._on_v6 = True
+                self._v4_down_until = time.monotonic() + _V4_HOLD
+                return stream
+        if not v4_first and self._v4:
+            try:
+                stream = await self._dial(
+                    self._v4, "_v4_index", "0.0.0.0", port, v4_each, socket_options, v4_attempts
+                )
+            except Exception as exc:
+                last = exc
+            else:
+                log.warning("telegram ipv6 down, back to ipv4")
+                self._on_v6 = False
+                self._v4_down_until = 0.0
+                return stream
         assert last is not None
         raise last
 

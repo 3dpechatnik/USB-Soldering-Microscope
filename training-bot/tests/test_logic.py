@@ -266,7 +266,7 @@ class AddressRotationTest(unittest.IsolatedAsyncioTestCase):
         from bot.telegram_app import TelegramIPv4
 
         backend = TelegramIPv4()
-        backend._ips = ["203.0.113.1", "203.0.113.2"]
+        backend._v4 = ["203.0.113.1", "203.0.113.2"]
         backend._refreshed = 10**9
         calls = []
 
@@ -280,6 +280,36 @@ class AddressRotationTest(unittest.IsolatedAsyncioTestCase):
         stream = await backend.connect_tcp("api.telegram.org", 443, timeout=5)
         self.assertEqual(stream, "stream")
         self.assertEqual(calls, ["203.0.113.1", "203.0.113.2"])
+
+    async def test_ipv6_backup_when_ipv4_is_down(self):
+        from bot.telegram_app import TELEGRAM_IPV6_SOURCE, TelegramIPv4
+
+        backend = TelegramIPv4()
+        backend._v4 = ["203.0.113.1"]
+        backend._v6 = ["2001:db8::9"]
+        backend._refreshed = 10**9
+        calls = []
+
+        async def connect(host, port, timeout=None, local_address=None, socket_options=None):
+            calls.append((host, local_address, timeout))
+            if ":" not in host:
+                raise TimeoutError("down")
+            return "stream"
+
+        backend._inner.connect_tcp = connect
+        first = await backend.connect_tcp("api.telegram.org", 443, timeout=5)
+        second = await backend.connect_tcp("api.telegram.org", 443, timeout=5)
+        self.assertEqual(first, "stream")
+        self.assertEqual(second, "stream")
+        self.assertEqual(
+            calls,
+            [
+                ("203.0.113.1", "0.0.0.0", 2.0),
+                ("2001:db8::9", TELEGRAM_IPV6_SOURCE, 4.0),
+                ("2001:db8::9", TELEGRAM_IPV6_SOURCE, 4.0),
+            ],
+        )
+        self.assertEqual(TELEGRAM_IPV6_SOURCE, "2a04:bac0:1000:4f8::1")
 
 
 if __name__ == "__main__":
