@@ -68,6 +68,11 @@ class DB:
             );
             """
         )
+        columns = {row[1] for row in self.conn.execute("PRAGMA table_info(users)")}
+        if "expect_review" not in columns:
+            self.conn.execute(
+                "ALTER TABLE users ADD COLUMN expect_review INTEGER NOT NULL DEFAULT 0"
+            )
         self.conn.commit()
 
     def upsert_user(self, tg_id: int, username: str, full_name: str, language: str) -> dict:
@@ -151,6 +156,19 @@ class DB:
             "UPDATE choices SET archived=1 WHERE tg_id=? AND archived=0",
             (tg_id,),
         )
+        self.conn.commit()
+
+    def total_hours(self, tg_id: int) -> int:
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(hours), 0) AS n FROM choices WHERE tg_id=?",
+            (tg_id,),
+        ).fetchone()
+        return min(10000, int(row["n"]))
+
+    def delete_user(self, tg_id: int) -> None:
+        self.conn.execute("DELETE FROM sessions WHERE tg_id=?", (tg_id,))
+        self.conn.execute("DELETE FROM choices WHERE tg_id=?", (tg_id,))
+        self.conn.execute("DELETE FROM users WHERE tg_id=?", (tg_id,))
         self.conn.commit()
 
     def add_hour(self, choice_id: int) -> int:

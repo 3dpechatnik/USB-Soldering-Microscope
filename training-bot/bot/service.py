@@ -60,6 +60,8 @@ LABEL_ACTIONS = {
     "btn_r3": "rate:3",
     "btn_r4": "rate:4",
     "btn_r5": "rate:5",
+    "btn_delete_yes": "delete:yes",
+    "btn_delete_no": "delete:no",
 }
 
 log = logging.getLogger(__name__)
@@ -89,6 +91,7 @@ class Service:
         self.i18n = I18n(db, ai)
         self.admin_id = admin_id
         self._locks: dict[int, asyncio.Lock] = {}
+        self._ai_slots = asyncio.Semaphore(8)
         self._on_wait = None
 
     def _lock(self, tg_id: int) -> asyncio.Lock:
@@ -125,12 +128,21 @@ class Service:
                 return await self._route(user)
             if text.startswith("/menu") and self.db.active_choice(tg_id):
                 return await self._open_menu(user)
+            command = text.strip().split()[0].split("@", 1)[0].lower()
+            if command == "/review":
+                return await self._ask_review(user)
+            if command == "/subscribe":
+                return await self._subscribe(user)
+            if command == "/delete":
+                return await self._ask_delete(user)
             action = self._match(user, text)
             if action is None and text.startswith(
                 ("gender:", "calm:", "active:", "time:", "go:", "nav:", "rate:")
             ):
                 action = text
             if action is None:
+                if user.get("expect_review") and not text.startswith("/"):
+                    return await self._save_review(user, text)
                 if user["expect_note"] and not text.startswith("/"):
                     return await self._save_note(user, text)
                 screen = await self._route(user)
@@ -185,6 +197,10 @@ class Service:
             return await self._time(user)
         if user["screen"] == "menu":
             return await self._menu(user)
+        if user["screen"] == "delete":
+            return await self._ask_delete(user)
+        if user["screen"] == "review":
+            return await self._ask_review(user)
         if user["screen"] == "schools":
             return await self._schools(user)
         if user["screen"] == "exp":
@@ -278,13 +294,13 @@ class Service:
     async def _exp(self, user: dict) -> Screen:
         self.db.update_user(user["tg_id"], screen="exp")
         user = self.db.user(user["tg_id"])
-        choice = self.db.active_choice(user["tg_id"])
         template = await self._t(user, "progress")
-        length = duration_for(choice["hours"])
+        hours = self.db.total_hours(user["tg_id"])
+        length = duration_for(hours)
         lines = [
             await self._heading(user, "exp_title"),
             "",
-            esc(progress_text(template, choice["hours"])),
+            esc(progress_text(template, hours)),
             esc(await self._t(user, "length_line", minutes=length)),
         ]
         if self.is_admin(user["tg_id"]):
@@ -302,15 +318,14 @@ class Service:
     async def _pay(self, user: dict, reason: str, actions: list[tuple[str, str]]) -> Screen:
         choice = self.db.active_choice(user["tg_id"])
         pair = ""
-        hours = 0
+        hours = self.db.total_hours(user["tg_id"])
         if choice:
             calm = await self._t(user, f"btn_{choice['calm']}")
             active = await self._t(user, f"btn_{choice['active']}")
             pair = f"{calm} / {active}"
-            hours = choice["hours"]
         reasons = {
             "limit": "закончились 21 бесплатных тренировки",
-            "change": "хочет сменить школы",
+            "subscribe": "открыл подписку в меню",
             "timer": "нажал таймер в бесплатном режиме",
         }
         who = self._who(user)
@@ -394,9 +409,50 @@ class Service:
         actions.append(("go:menu", await self._t(user, "btn_menu")))
         return actions
 
+    async def _ask_review(self, user: dict) -> Screen:
+        self.db.update_user(user["tg_id"], expect_review=1, expect_note=0, screen="review")
+        user = self.db.user(user["tg_id"])
+        actions = [("nav:review_cancel", await self._t(user, "btn_back"))]
+        return await self._pack(user, esc(await self._t(user, "review_invite")), actions)
+
+    async def _save_review(self, user: dict, text: str) -> Screen:
+        clean = text.strip()[:1000]
+        self.db.update_user(user["tg_id"], expect_review=0, screen="home")
+        user = self.db.user(user["tg_id"])
+        admin = f"Отзыв из меню\n{self._who(user)}\n{clean}"
+        screen = await self._route(user)
+        screen.admin_text = admin
+        sent = esc(await self._t(user, "review_sent"))
+        screen.text = f"{sent}\n\n{screen.text}"
+        return screen
+
+    async def _subscribe(self, user: dict) -> Screen:
+        actions = [("nav:review_cancel", await self._t(user, "btn_back"))]
+        return await self._pay(user, "subscribe", actions)
+
+    async def _ask_delete(self, user: dict) -> Screen:
+        self.db.update_user(user["tg_id"], screen="delete", expect_review=0, expect_note=0)
+        user = self.db.user(user["tg_id"])
+        actions = [
+            ("delete:yes", await self._t(user, "btn_delete_yes")),
+            ("delete:no", await self._t(user, "btn_delete_no")),
+        ]
+        return await self._pack(user, esc(await self._t(user, "delete_ask")), actions)
+
+    async def _wipe(self, user: dict) -> Screen:
+        tg_id = user["tg_id"]
+        username = user.get("username") or ""
+        full_name = user.get("full_name") or ""
+        language = user.get("language") or "ru"
+        self.db.delete_user(tg_id)
+        fresh = self.db.upsert_user(tg_id, username, full_name, language)
+        screen = await self._gender(fresh)
+        screen.text = f"{esc(await self._t(fresh, 'deleted'))}\n\n{screen.text}"
+        return screen
+
     async def _action(self, user: dict, action: str) -> Screen:
-        if user["expect_note"]:
-            self.db.update_user(user["tg_id"], expect_note=0)
+        if user["expect_note"] or user.get("expect_review"):
+            self.db.update_user(user["tg_id"], expect_note=0, expect_review=0)
             user = self.db.user(user["tg_id"])
         if action.startswith("gender:"):
             gender = action.split(":", 1)[1]
@@ -481,12 +537,29 @@ class Service:
             return await self._exp(user)
 
         if action == "go:change":
-            reason = block_reason(self.is_admin(user["tg_id"]), 0, "change_schools")
-            if reason:
-                actions = [("nav:to_menu", await self._t(user, "btn_back"))]
-                return await self._pay(user, reason, actions)
             self.db.update_user(user["tg_id"], reselect=1, pending_calm=None, screen="calm")
             return await self._calm(self.db.user(user["tg_id"]))
+
+        if action == "nav:review_cancel":
+            self.db.update_user(user["tg_id"], expect_review=0)
+            user = self.db.user(user["tg_id"])
+            if self.db.active_session(user["tg_id"]):
+                return await self._card(user)
+            if self.db.active_choice(user["tg_id"]):
+                return await self._home(user)
+            return await self._route(user)
+
+        if action == "delete:no":
+            self.db.update_user(user["tg_id"], screen="home")
+            user = self.db.user(user["tg_id"])
+            if self.db.active_session(user["tg_id"]):
+                return await self._card(user)
+            if self.db.active_choice(user["tg_id"]):
+                return await self._home(user)
+            return await self._route(user)
+
+        if action == "delete:yes":
+            return await self._wipe(user)
 
         if action == "nav:to_menu":
             return await self._menu(user)
@@ -518,7 +591,9 @@ class Service:
         existing = self.db.active_session(user["tg_id"])
         if existing:
             return await self._card(user, existing)
-        reason = block_reason(self.is_admin(user["tg_id"]), choice["hours"], "new_workout")
+        reason = block_reason(
+            self.is_admin(user["tg_id"]), self.db.total_hours(user["tg_id"]), "new_workout"
+        )
         if reason:
             actions = [
                 ("go:train", await self._t(user, "btn_train")),
@@ -529,7 +604,7 @@ class Service:
 
     async def _generate(self, user: dict, choice: dict) -> Screen:
         time_of_day = user["time_of_day"]
-        hours = int(choice["hours"])
+        hours = self.db.total_hours(user["tg_id"])
         duration = duration_for(hours)
         minutes = minutes_for(hours, time_of_day)
         finished = self.db.last_finished(choice["id"])
@@ -562,7 +637,8 @@ class Service:
             note,
         )
         try:
-            payload = await self.ai.session(system, request)
+            async with self._ai_slots:
+                payload = await self.ai.session(system, request)
         except Exception:
             log.exception("workout generation failed")
             fail = esc(await self._t(user, "fail"))
@@ -628,7 +704,8 @@ class Service:
         if index != len(cards) - 1:
             return await self._card(user, session)
         self.db.finish_session(session["id"])
-        hours = self.db.add_hour(session["choice_id"])
+        self.db.add_hour(session["choice_id"])
+        hours = self.db.total_hours(user["tg_id"])
         self.db.set_feedback(session["choice_id"], score)
         self.db.update_user(user["tg_id"], screen="done", expect_note=1)
         user = self.db.user(user["tg_id"])

@@ -142,6 +142,47 @@ class FlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.db.active_choice(906994986)["active"], "valkyrie")
         self.assertEqual(self.db.active_choice(906994986)["hours"], 0)
 
+    async def test_school_change_keeps_total_and_menu_commands(self):
+        await self.send("/start")
+        await self.send(RU["btn_male"])
+        await self.send(RU["btn_yoga"])
+        await self.send(RU["btn_witcher"])
+        await self.send(RU["btn_morning"])
+        self.db.conn.execute("UPDATE choices SET hours=21 WHERE tg_id=5")
+        self.db.conn.commit()
+        await self.send(RU["btn_menu"])
+        await self.send(RU["btn_schools"])
+        screen = await self.send(RU["btn_change"])
+        self.assertNotIn("Подписка", screen.text)
+        await self.send(RU["btn_qigong"])
+        await self.send(RU["btn_blade"])
+        self.assertEqual(self.db.active_choice(5)["hours"], 0)
+        self.assertEqual(self.db.total_hours(5), 21)
+        screen = await self.send(RU["btn_exp"])
+        self.assertIn("21/10000", screen.text)
+        screen = await self.send(RU["btn_train"])
+        self.assertIn("Подписка", screen.text)
+
+        screen = await self.send("/review")
+        self.assertIn("отзыв", screen.text.lower())
+        screen = await self.send("стало тише")
+        self.assertIn("Отзыв из меню", screen.admin_text)
+        self.assertIn("стало тише", screen.admin_text)
+
+        screen = await self.send("/subscribe")
+        self.assertIn("Подписка", screen.text)
+        self.assertIn("открыл подписку", screen.admin_text)
+
+        screen = await self.send("/delete")
+        self.assertIn("delete:yes", [item[0] for item in screen.actions])
+        screen = await self.send(RU["btn_delete_no"])
+        self.assertIn("Тренировка", screen.text)
+        screen = await self.send("/delete")
+        screen = await self.send(RU["btn_delete_yes"])
+        self.assertIn("Данные удалены", screen.text)
+        self.assertIsNone(self.db.active_choice(5))
+        self.assertEqual(self.db.total_hours(5), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

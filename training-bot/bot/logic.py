@@ -77,8 +77,6 @@ def block_reason(is_admin: bool, hours: int, action: str) -> str | None:
         return None
     if action == "new_workout" and hours >= FREE_LIMIT:
         return "limit"
-    if action == "change_schools":
-        return "change"
     if action == "timer":
         return "timer"
     return None

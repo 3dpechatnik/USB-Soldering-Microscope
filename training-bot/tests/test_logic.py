@@ -53,7 +53,7 @@ class LogicTest(unittest.TestCase):
         self.assertIsNone(block_reason(True, 21, "timer"))
         self.assertEqual(block_reason(False, 21, "new_workout"), "limit")
         self.assertIsNone(block_reason(False, 20, "new_workout"))
-        self.assertEqual(block_reason(False, 0, "change_schools"), "change")
+        self.assertIsNone(block_reason(False, 0, "change_schools"))
         self.assertEqual(block_reason(False, 0, "timer"), "timer")
 
     def test_progress_line(self):
@@ -141,6 +141,27 @@ class LogicTest(unittest.TestCase):
         self.assertIn("▰", shown)
         self.assertEqual(tick_delay(90), 5)
         self.assertEqual(tick_delay(30), 1)
+
+
+class AddressRotationTest(unittest.IsolatedAsyncioTestCase):
+    async def test_failed_address_is_skipped(self):
+        from bot.telegram_app import TelegramIPv4
+
+        backend = TelegramIPv4()
+        backend._ips = ["203.0.113.1", "203.0.113.2"]
+        backend._refreshed = 10**9
+        calls = []
+
+        async def connect(host, port, timeout=None, local_address=None, socket_options=None):
+            calls.append(host)
+            if host == "203.0.113.1":
+                raise TimeoutError("down")
+            return "stream"
+
+        backend._inner.connect_tcp = connect
+        stream = await backend.connect_tcp("api.telegram.org", 443, timeout=5)
+        self.assertEqual(stream, "stream")
+        self.assertEqual(calls, ["203.0.113.1", "203.0.113.2"])
 
 
 if __name__ == "__main__":
