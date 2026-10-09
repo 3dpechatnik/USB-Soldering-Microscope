@@ -6,6 +6,7 @@ from bot.logic import (
     band_for,
     block_reason,
     deck,
+    dose_line,
     duration_for,
     format_clock,
     minutes_for,
@@ -14,7 +15,7 @@ from bot.logic import (
     tick_delay,
     validate_session,
 )
-from bot.prompts import build_system
+from bot.prompts import build_system, build_user
 
 
 class LogicTest(unittest.TestCase):
@@ -70,6 +71,8 @@ class LogicTest(unittest.TestCase):
         self.assertIn("active school is the Witcher", system)
         self.assertIn("Greet the person as the teacher of this joined school", system)
         self.assertIn("One sentence, one action", system)
+        self.assertIn("a few more reps", system)
+        self.assertIn("after the cooldown only", system)
         self.assertIn("Тихая засада", system)
         self.assertNotIn("This is the working session", system)
         self.assertNotIn("Black Widow", system)
@@ -136,6 +139,48 @@ class LogicTest(unittest.TestCase):
         self.assertEqual([card["block"] for card in cards], ["warmup", "main", "ending"])
         self.assertEqual([item["name"] for item in cards[1]["exercises"]], ["Гора", "Стойка"])
         self.assertEqual(cards[1]["seconds"], 105)
+
+    def test_reps_sit_beside_the_time(self):
+        self.assertEqual(dose_line(60, 0, "{n} раз"), "1:00")
+        self.assertEqual(dose_line(60, 8, "{n} раз"), "8 раз  ·  1:00")
+        session = validate_session(
+            {
+                "opening": "Утро.",
+                "emoji": "🌅",
+                "title": "Свет",
+                "level": "Новичок",
+                "goal": "Проснуться.",
+                "parts": [
+                    {
+                        "name": "Вход",
+                        "role": "warmup",
+                        "exercises": [
+                            {"name": "Наклон", "seconds": 40, "reps": 8, "text": "Медленно."}
+                        ],
+                    }
+                ],
+                "closing": "Хватит.",
+                "ask": "Как прошло?",
+            }
+        )
+        self.assertEqual(session["parts"][0]["exercises"][0]["reps"], 8)
+
+    def test_recent_effort_reaches_the_master(self):
+        text = build_user(
+            "ru",
+            2,
+            45,
+            (8, 13, 14, 10),
+            "morning",
+            [],
+            [],
+            "",
+            [
+                {"score": 1, "title": "Тихий шаг", "note": ""},
+                {"score": 3, "title": "Ровная работа", "note": "колено"},
+            ],
+        )
+        self.assertIn("recent_effort: 1 (Тихий шаг); 3 (Ровная работа) — колено", text)
 
     def test_clock_counts_real_time(self):
         shown = format_clock(90, 120, step=1, running=True)

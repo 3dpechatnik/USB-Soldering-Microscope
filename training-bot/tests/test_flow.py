@@ -112,6 +112,9 @@ class FlowTest(unittest.IsolatedAsyncioTestCase):
         screen = await self.send("колено тянет")
         self.assertIn("Уточнение", screen.admin_text)
         self.assertEqual(self.db.active_choice(5)["last_note"], "колено тянет")
+        efforts = self.db.recent_efforts(5)
+        self.assertEqual(efforts[0]["score"], 4)
+        self.assertEqual(efforts[0]["note"], "колено тянет")
 
         self.db.conn.execute("UPDATE choices SET hours=21 WHERE tg_id=5")
         self.db.conn.commit()

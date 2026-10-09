@@ -73,6 +73,11 @@ class DB:
             self.conn.execute(
                 "ALTER TABLE users ADD COLUMN expect_review INTEGER NOT NULL DEFAULT 0"
             )
+        session_columns = {row[1] for row in self.conn.execute("PRAGMA table_info(sessions)")}
+        if "score" not in session_columns:
+            self.conn.execute("ALTER TABLE sessions ADD COLUMN score INTEGER")
+        if "note" not in session_columns:
+            self.conn.execute("ALTER TABLE sessions ADD COLUMN note TEXT NOT NULL DEFAULT ''")
         self.conn.commit()
 
     def upsert_user(self, tg_id: int, username: str, full_name: str, language: str) -> dict:
@@ -249,12 +254,46 @@ class DB:
         )
         self.conn.commit()
 
-    def finish_session(self, session_id: int) -> None:
-        self.conn.execute(
-            "UPDATE sessions SET status='finished' WHERE id=?",
-            (session_id,),
-        )
+    def finish_session(self, session_id: int, score: int | None = None) -> None:
+        if score is None:
+            self.conn.execute(
+                "UPDATE sessions SET status='finished' WHERE id=?",
+                (session_id,),
+            )
+        else:
+            self.conn.execute(
+                "UPDATE sessions SET status='finished', score=? WHERE id=?",
+                (score, session_id),
+            )
         self.conn.commit()
+
+    def set_latest_note(self, tg_id: int, note: str) -> None:
+        row = self.conn.execute(
+            """
+            SELECT id FROM sessions
+            WHERE tg_id=? AND status='finished'
+            ORDER BY id DESC LIMIT 1
+            """,
+            (tg_id,),
+        ).fetchone()
+        if row is None:
+            return
+        self.conn.execute("UPDATE sessions SET note=? WHERE id=?", (note, row["id"]))
+        self.conn.commit()
+
+    def recent_efforts(self, tg_id: int, limit: int = 2) -> list[dict]:
+        rows = self.conn.execute(
+            """
+            SELECT title, score, note FROM sessions
+            WHERE tg_id=? AND status='finished' AND score IS NOT NULL
+            ORDER BY id DESC LIMIT ?
+            """,
+            (tg_id, limit),
+        ).fetchall()
+        return [
+            {"title": row["title"], "score": int(row["score"]), "note": row["note"] or ""}
+            for row in rows
+        ]
 
     def last_finished(self, choice_id: int, limit: int = 2) -> list[dict]:
         rows = self.conn.execute(

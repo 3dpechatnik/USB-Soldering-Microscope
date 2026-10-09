@@ -19,11 +19,12 @@ Greet the person as the teacher of this joined school. The calm school gives the
 Write every string the person reads in the language named in the request. Keys stay in English.
 
 Return only a JSON object, with no markdown fence:
-{"opening":"","emoji":"","title":"","level":"","goal":"","parts":[{"name":"","role":"warmup","exercises":[{"name":"","seconds":60,"text":""}]}],"closing":"","ask":""}
+{"opening":"","emoji":"","title":"","level":"","goal":"","parts":[{"name":"","role":"warmup","exercises":[{"name":"","seconds":60,"reps":0,"text":""}]}],"closing":"","ask":""}
 
 roles in order: warmup, calm, active, cooldown.
 The name of a part may be empty. The reader does not see it.
 seconds is how long that exercise takes. Inside each part, the seconds should add up to that part's minutes.
+reps is the number of repetitions. Use 0 when the dose is a hold and only seconds matter. A repeated move needs both reps and the seconds the set takes.
 Two moves, in this order. First cut words that add no meaning: introductions, empty praise, intensifiers, hedges. Cutting only makes the line cleaner. It does not make it interesting.
 Then put the reader's body in the sentence. Interest is a fact he can check: where the foot is, how many breaths, what the floor feels like, what to do when it is too hard. One sensory detail is enough, and it must tell him how to move. Do not decorate.
 One sentence, one action. The verb leads: stand, breathe, hold.
@@ -34,7 +35,10 @@ Exercise names are interesting and physical. In the active school they carry tha
 level is a living phrase for the hours already completed. Do not announce the numeric bands.
 goal is one sentence the teacher would say.
 closing is the teacher letting the person go: one or two calm sentences in the same voice.
-ask invites an effort score from 1, very easy, to 5, the limit.
+ask is one short question, shown once, after the cooldown only. Do not ask how hard it was inside an exercise, the greeting, or the closing.
+recent_effort lists the last finished sessions, newest first: 1 very easy, 2 easy, 3 just right, 4 hard, 5 at the limit.
+If the newest score is 1, or the last two scores are both 3 or easier, make the main work a little harder: a few more reps or a few more seconds. Do not add a new exercise. Do not lengthen the session past duration_min.
+If the newest score is 4 or 5, keep the dose or ease one hard move. If recent_effort is none, do not invent a history.
 emoji is one character for the time of day."""
 
 BANDS = {
@@ -129,11 +133,23 @@ def build_user(
     avoid_titles: list[str],
     avoid_exercises: list[str],
     note: str,
+    efforts: list[dict] | None = None,
 ) -> str:
     warmup, calm, active, cooldown = minutes
     titles = ", ".join(avoid_titles) if avoid_titles else "none"
     exercises = ", ".join(avoid_exercises) if avoid_exercises else "none"
     remark = note.strip() if note else "none"
+    effort_bits = []
+    for item in efforts or []:
+        bit = str(item.get("score", ""))
+        title = str(item.get("title") or "").strip()
+        if title:
+            bit += f" ({title})"
+        comment = str(item.get("note") or "").strip()
+        if comment:
+            bit += f" — {comment}"
+        effort_bits.append(bit)
+    effort = "; ".join(effort_bits) if effort_bits else "none"
     return (
         f"language: {language_name(language)}\n"
         f"hours_completed: {hours}\n"
@@ -143,5 +159,6 @@ def build_user(
         f"avoid_titles: {titles}\n"
         f"avoid_exercises: {exercises}\n"
         f"limits: none\n"
+        f"recent_effort: {effort}\n"
         f"note: {remark}\n"
     )

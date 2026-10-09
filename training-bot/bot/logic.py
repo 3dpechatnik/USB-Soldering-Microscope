@@ -114,6 +114,13 @@ def tick_delay(left: int) -> int:
     return 1
 
 
+def dose_line(seconds: int, reps: int, reps_template: str) -> str:
+    shown = clock(seconds)
+    if reps:
+        return f"{reps_template.format(n=reps)}  ·  {shown}"
+    return shown
+
+
 def progress_text(template: str, hours: int) -> str:
     done = max(0, min(10000, int(hours)))
     percent = f"{done / 100:.2f}%"
@@ -153,7 +160,11 @@ def validate_session(data: dict) -> dict:
                 continue
             seconds = int(item.get("seconds", 60))
             seconds = min(3600, max(10, seconds))
-            exercises.append({"name": name, "seconds": seconds, "text": text})
+            reps = int(item.get("reps") or 0)
+            reps = min(100, max(0, reps))
+            exercises.append(
+                {"name": name, "seconds": seconds, "reps": reps, "text": text}
+            )
         if not exercises:
             raise ValueError("empty part")
         clean_parts.append(
@@ -191,6 +202,7 @@ def deck(session: dict) -> list[dict]:
                     "part": part.get("name") or "",
                     "name": exercise["name"],
                     "seconds": exercise["seconds"],
+                    "reps": int(exercise.get("reps") or 0),
                     "text": exercise["text"],
                 }
             )

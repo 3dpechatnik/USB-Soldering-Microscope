@@ -15,8 +15,8 @@ from bot.logic import (
     TIME_IDS,
     band_for,
     block_reason,
-    clock,
     deck,
+    dose_line,
     format_clock,
     duration_for,
     exercise_names,
@@ -353,7 +353,8 @@ class Service:
         else:
             self.db.update_user(user["tg_id"], screen="card")
         user = self.db.user(user["tg_id"])
-        body = self._render(payload, card, index == 0, last)
+        reps_line = await self._t(user, "reps_line")
+        body = self._render(payload, card, index == 0, last, reps_line)
         actions = await self._workout_actions(user, index, last)
         clock_line = format_clock(card["seconds"], card["seconds"], running=False)
         text = f"{body}\n\n{clock_line}"
@@ -369,7 +370,7 @@ class Service:
     def _timer_allowed(self, user: dict) -> bool:
         return block_reason(self.is_admin(user["tg_id"]), 0, "timer") is None
 
-    def _render(self, payload: dict, card: dict, first: bool, last: bool) -> str:
+    def _render(self, payload: dict, card: dict, first: bool, last: bool, reps_line: str) -> str:
         lines: list[str] = []
         if first:
             lines.extend(
@@ -386,7 +387,9 @@ class Service:
             )
         for exercise in card["exercises"]:
             lines.append(f"<b>{esc(exercise['name'])}</b>")
-            lines.append(esc(clock(exercise["seconds"])))
+            lines.append(
+                esc(dose_line(exercise["seconds"], int(exercise.get("reps") or 0), reps_line))
+            )
             lines.append(esc(exercise["text"]))
             lines.append("")
         if last:
@@ -611,11 +614,8 @@ class Service:
         names: list[str] = []
         for item in finished:
             names.extend(exercise_names(item["payload"]))
-        note = ""
-        if choice["last_score"]:
-            note = f"effort {choice['last_score']}"
-            if choice["last_note"]:
-                note += f"; {choice['last_note']}"
+        note = (choice["last_note"] or "").strip()
+        efforts = self.db.recent_efforts(user["tg_id"], 2)
         system = build_system(
             band_for(hours),
             time_of_day,
@@ -634,6 +634,7 @@ class Service:
             titles,
             names[:40],
             note,
+            efforts,
         )
         try:
             async with self._ai_slots:
@@ -700,7 +701,7 @@ class Service:
         payload, cards, index = self._position(session)
         if index != len(cards) - 1:
             return await self._card(user, session)
-        self.db.finish_session(session["id"])
+        self.db.finish_session(session["id"], score)
         self.db.add_hour(session["choice_id"])
         hours = self.db.total_hours(user["tg_id"])
         self.db.set_feedback(session["choice_id"], score)
@@ -730,6 +731,7 @@ class Service:
         clean = text.strip()[:1000]
         if choice and clean:
             self.db.set_feedback(choice["id"], choice["last_score"] or 0, clean)
+            self.db.set_latest_note(user["tg_id"], clean)
         self.db.update_user(user["tg_id"], expect_note=0)
         user = self.db.user(user["tg_id"])
         admin = f"Уточнение к отзыву\n{self._who(user)}\n{clean}"
