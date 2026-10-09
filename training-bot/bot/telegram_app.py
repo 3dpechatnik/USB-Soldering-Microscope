@@ -23,8 +23,11 @@ class Telegram:
         self.url = f"https://api.telegram.org/bot{token}"
         self.client = client
 
-    async def call(self, method: str, **payload):
-        response = await self.client.post(f"{self.url}/{method}", json=payload)
+    async def call(self, method: str, request_timeout: httpx.Timeout | None = None, **payload):
+        kwargs = {"json": payload}
+        if request_timeout is not None:
+            kwargs["timeout"] = request_timeout
+        response = await self.client.post(f"{self.url}/{method}", **kwargs)
         data = response.json()
         if not data.get("ok"):
             description = data.get("description", "telegram error")
@@ -181,9 +184,9 @@ async def main() -> None:
     ai = DeepSeek(settings.deepseek_api_key)
     service = Service(db, ai, settings.admin_id)
     client = httpx.AsyncClient(
-        timeout=httpx.Timeout(connect=8.0, read=30.0, write=20.0, pool=8.0),
-        transport=httpx.AsyncHTTPTransport(local_address="0.0.0.0", retries=2),
-        limits=httpx.Limits(max_keepalive_connections=0),
+        timeout=httpx.Timeout(connect=5.0, read=12.0, write=10.0, pool=5.0),
+        transport=httpx.AsyncHTTPTransport(local_address="0.0.0.0", retries=0),
+        limits=httpx.Limits(max_keepalive_connections=0, max_connections=10),
     )
     tg = Telegram(settings.bot_token, client)
 
@@ -218,14 +221,21 @@ async def main() -> None:
             await tg.call("sendMessage", chat_id=chat_id, text=wait_text)
 
         try:
-            screen = await service.on_message(
-                user["id"],
-                user.get("username") or "",
-                full_name,
-                user.get("language_code") or "",
-                text,
-                on_wait=on_wait,
+            screen = await asyncio.wait_for(
+                service.on_message(
+                    user["id"],
+                    user.get("username") or "",
+                    full_name,
+                    user.get("language_code") or "",
+                    text,
+                    on_wait=on_wait,
+                ),
+                timeout=100,
             )
+        except TimeoutError:
+            log.warning("update timed out")
+            await tg.call("sendMessage", chat_id=chat_id, text="Долго нет ответа. Нажми ещё раз.")
+            return
         except Exception:
             log.exception("update failed")
             await tg.call("sendMessage", chat_id=chat_id, text="Не вышло. Нажми /start")
@@ -242,7 +252,12 @@ async def main() -> None:
                 )
             except Exception:
                 log.exception("admin notify failed")
-        message_id = await show(tg, chat_id, screen)
+        try:
+            message_id = await show(tg, chat_id, screen)
+        except Exception:
+            log.exception("show failed")
+            await tg.call("sendMessage", chat_id=chat_id, text="Не вышло отправить экран. Нажми ещё раз.")
+            return
         if screen.timer_after and message_id:
             start_timer(tg, chat_id, screen, message_id)
 
@@ -283,27 +298,35 @@ async def main() -> None:
         except Exception as exc:
             log.warning("admin hello failed: %s", exc)
         log.info("training bot polling")
+        workers: set[asyncio.Task] = set()
+
+        async def handle(update: dict) -> None:
+            try:
+                if update.get("message"):
+                    await on_message(update["message"])
+                elif update.get("callback_query"):
+                    await on_callback(update["callback_query"])
+            except Exception:
+                log.exception("message failed")
+
         while True:
             try:
                 updates = await tg.call(
                     "getUpdates",
+                    request_timeout=httpx.Timeout(connect=5.0, read=14.0, write=10.0, pool=5.0),
                     offset=offset,
                     timeout=8,
                     allowed_updates=["message", "callback_query"],
                 )
             except Exception as exc:
                 log.warning("poll failed: %s %r", type(exc).__name__, exc)
-                await asyncio.sleep(2)
+                await asyncio.sleep(1)
                 continue
             for update in updates or []:
                 offset = update["update_id"] + 1
-                try:
-                    if update.get("message"):
-                        await on_message(update["message"])
-                    elif update.get("callback_query"):
-                        await on_callback(update["callback_query"])
-                except Exception:
-                    log.exception("message failed")
+                task = asyncio.create_task(handle(update))
+                workers.add(task)
+                task.add_done_callback(workers.discard)
     finally:
         await ai.close()
         await client.aclose()

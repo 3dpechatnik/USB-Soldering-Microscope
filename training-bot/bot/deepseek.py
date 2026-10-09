@@ -15,8 +15,8 @@ class DeepSeek:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.client = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=15.0, read=180.0, write=30.0, pool=15.0),
-            transport=httpx.AsyncHTTPTransport(local_address="0.0.0.0"),
+            timeout=httpx.Timeout(connect=10.0, read=90.0, write=20.0, pool=10.0),
+            transport=httpx.AsyncHTTPTransport(local_address="0.0.0.0", retries=0),
         )
 
     async def close(self) -> None:
