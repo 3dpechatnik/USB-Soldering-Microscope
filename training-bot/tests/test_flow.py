@@ -130,6 +130,8 @@ class FlowTest(unittest.IsolatedAsyncioTestCase):
         await self.send("/start", 906994986)
         await self.send(RU["btn_female"], 906994986)
         await self.send(RU["btn_monk"], 906994986)
+        self.assertNotIn("🎖", RU["btn_nikita"])
+        self.assertIn("🕵️", RU["btn_nikita"])
         await self.send(RU["btn_nikita"], 906994986)
         screen = await self.send(RU["btn_night"], 906994986)
         self.assertEqual(screen.timer_after, 60)
