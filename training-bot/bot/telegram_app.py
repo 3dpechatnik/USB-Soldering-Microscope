@@ -38,6 +38,73 @@ TELEGRAM_IPV6_SOURCE = "2a04:bac0:1000:4f8::1"
 _V4_HOLD = 180.0
 
 
+class _BoundIPv6Stream(httpcore.AsyncNetworkStream):
+    """TCP stream bound with an IPv6 4-tuple.
+
+    anyio turns that address into a 2-tuple, and asyncio then waits until the
+    connect timeout instead of using the address that is already on the host.
+    """
+
+    def __init__(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        self._reader = reader
+        self._writer = writer
+
+    async def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        try:
+            return await asyncio.wait_for(self._reader.read(max_bytes), timeout)
+        except TimeoutError as exc:
+            raise httpcore.ReadTimeout(str(exc)) from exc
+        except Exception as exc:
+            raise httpcore.ReadError(str(exc)) from exc
+
+    async def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        if not buffer:
+            return
+        self._writer.write(buffer)
+        try:
+            await asyncio.wait_for(self._writer.drain(), timeout)
+        except TimeoutError as exc:
+            raise httpcore.WriteTimeout(str(exc)) from exc
+        except Exception as exc:
+            raise httpcore.WriteError(str(exc)) from exc
+
+    async def aclose(self) -> None:
+        self._writer.close()
+        try:
+            await self._writer.wait_closed()
+        except Exception:
+            return
+
+    async def start_tls(self, ssl_context, server_hostname=None, timeout=None):
+        try:
+            await asyncio.wait_for(
+                self._writer.start_tls(
+                    ssl_context,
+                    server_hostname=server_hostname,
+                    ssl_handshake_timeout=timeout,
+                ),
+                timeout,
+            )
+        except TimeoutError as exc:
+            await self.aclose()
+            raise httpcore.ConnectTimeout(str(exc)) from exc
+        except Exception as exc:
+            await self.aclose()
+            raise httpcore.ConnectError(str(exc)) from exc
+        return self
+
+    def get_extra_info(self, info: str):
+        if info == "ssl_object":
+            return self._writer.get_extra_info("ssl_object")
+        if info == "client_addr":
+            return self._writer.get_extra_info("sockname")
+        if info == "server_addr":
+            return self._writer.get_extra_info("peername")
+        if info == "socket":
+            return self._writer.get_extra_info("socket")
+        return None
+
+
 class TelegramIPv4(httpcore.AsyncNetworkBackend):
     """Dial Telegram by IPv4. If that family is down, use the server IPv6 address."""
 
@@ -90,13 +157,40 @@ class TelegramIPv4(httpcore.AsyncNetworkBackend):
         if v4 is not None or v6 is not None:
             self._refreshed = now
 
+    async def _open(self, host, port, timeout, local_address, socket_options):
+        if ":" in host:
+            return await self._connect_bound_ipv6(host, port, timeout, local_address, socket_options)
+        return await self._inner.connect_tcp(host, port, timeout, local_address, socket_options)
+
+    async def _connect_bound_ipv6(self, ip, port, timeout, local, socket_options):
+        loop = asyncio.get_running_loop()
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            if socket_options:
+                for option in socket_options:
+                    sock.setsockopt(*option)
+            sock.setblocking(False)
+            # 4-tuple: a 2-tuple local address makes asyncio wait out the timeout.
+            sock.bind((local, 0, 0, 0))
+            await asyncio.wait_for(loop.sock_connect(sock, (ip, int(port), 0, 0)), timeout)
+            reader, writer = await asyncio.open_connection(sock=sock)
+            sock = None
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+        return _BoundIPv6Stream(reader, writer)
+
     async def _dial(self, ips: list[str], index_name: str, local: str, port, each, socket_options, attempts: int):
         last: Exception | None = None
         for _ in range(min(attempts, len(ips))):
             index = getattr(self, index_name) % len(ips)
             ip = ips[index]
             try:
-                stream = await self._inner.connect_tcp(ip, port, each, local, socket_options)
+                stream = await self._open(ip, port, each, local, socket_options)
             except Exception as exc:
                 last = exc
                 setattr(self, index_name, index + 1)

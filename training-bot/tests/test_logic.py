@@ -276,7 +276,7 @@ class AddressRotationTest(unittest.IsolatedAsyncioTestCase):
                 raise TimeoutError("down")
             return "stream"
 
-        backend._inner.connect_tcp = connect
+        backend._open = connect
         stream = await backend.connect_tcp("api.telegram.org", 443, timeout=5)
         self.assertEqual(stream, "stream")
         self.assertEqual(calls, ["203.0.113.1", "203.0.113.2"])
@@ -296,7 +296,7 @@ class AddressRotationTest(unittest.IsolatedAsyncioTestCase):
                 raise TimeoutError("down")
             return "stream"
 
-        backend._inner.connect_tcp = connect
+        backend._open = connect
         first = await backend.connect_tcp("api.telegram.org", 443, timeout=5)
         second = await backend.connect_tcp("api.telegram.org", 443, timeout=5)
         self.assertEqual(first, "stream")
