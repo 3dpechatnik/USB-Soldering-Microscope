@@ -73,6 +73,10 @@ class DB:
             self.conn.execute(
                 "ALTER TABLE users ADD COLUMN expect_review INTEGER NOT NULL DEFAULT 0"
             )
+        if "pending_text" not in columns:
+            self.conn.execute(
+                "ALTER TABLE users ADD COLUMN pending_text TEXT NOT NULL DEFAULT ''"
+            )
         session_columns = {row[1] for row in self.conn.execute("PRAGMA table_info(sessions)")}
         if "score" not in session_columns:
             self.conn.execute("ALTER TABLE sessions ADD COLUMN score INTEGER")
@@ -101,6 +105,15 @@ class DB:
             )
         self.conn.commit()
         return self.user(tg_id)
+
+    def pending_users(self) -> list[dict]:
+        rows = self.conn.execute(
+            """
+            SELECT * FROM users
+            WHERE pending_text IS NOT NULL AND pending_text != ''
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def user_ids(self) -> list[int]:
         rows = self.conn.execute("SELECT tg_id FROM users").fetchall()

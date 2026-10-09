@@ -200,6 +200,18 @@ class FlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.db.active_choice(5))
         self.assertEqual(self.db.total_hours(5), 0)
 
+    async def test_same_hour_does_not_build_a_second_workout(self):
+        await self.send("/start", 906994986)
+        await self.send(RU["btn_male"], 906994986)
+        await self.send(RU["btn_yoga"], 906994986)
+        await self.send(RU["btn_witcher"], 906994986)
+        await self.send(RU["btn_morning"], 906994986)
+        self.assertEqual(self.ai.calls, 1)
+        self.db.update_user(906994986, awaiting_first_time=1)
+        screen = await self.send(RU["btn_morning"], 906994986)
+        self.assertEqual(self.ai.calls, 1)
+        self.assertIn("Первый свет", screen.text)
+
     async def test_repeat_active_school_opens_the_hour(self):
         await self.send("/start", 906994986)
         await self.send(RU["btn_male"], 906994986)

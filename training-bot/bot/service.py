@@ -111,6 +111,8 @@ class Service:
             language = norm_lang(language)
             self._on_wait = on_wait
             user = self.db.upsert_user(tg_id, username or "", full_name or "", language)
+            if text:
+                self.db.update_user(tg_id, pending_text=text[:1000])
             if text.startswith("/start"):
                 if self.db.active_choice(tg_id) is None:
                     self.db.update_user(
@@ -511,13 +513,13 @@ class Service:
             if time_of_day not in TIME_IDS:
                 return await self._time(user)
             autostart = bool(user["awaiting_first_time"])
-            self.db.update_user(
-                user["tg_id"],
-                time_of_day=time_of_day,
-                awaiting_first_time=0,
-            )
+            self.db.update_user(user["tg_id"], time_of_day=time_of_day)
             user = self.db.user(user["tg_id"])
             if autostart:
+                existing = self.db.active_session(user["tg_id"])
+                if existing:
+                    self.db.update_user(user["tg_id"], awaiting_first_time=0)
+                    return await self._card(user, existing)
                 choice = self.db.active_choice(user["tg_id"])
                 if choice is None:
                     return await self._calm(user)
@@ -527,6 +529,7 @@ class Service:
                     "new_workout",
                 )
                 if reason:
+                    self.db.update_user(user["tg_id"], awaiting_first_time=0)
                     actions = [
                         ("go:train", await self._t(user, "btn_train")),
                         ("go:menu", await self._t(user, "btn_menu")),
@@ -667,6 +670,7 @@ class Service:
             fail = esc(await self._t(user, "fail"))
             return await self._home(user, lead=fail)
         payload = share_time(payload, minutes)
+        self.db.update_user(user["tg_id"], awaiting_first_time=0)
         session = self.db.create_session(
             user["tg_id"],
             choice["id"],

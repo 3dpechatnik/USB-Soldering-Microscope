@@ -402,6 +402,15 @@ def markup(screen: Screen) -> dict:
     }
 
 
+async def _note(tg: Telegram, db: DB, tg_id: int, chat_id: int, text: str) -> None:
+    try:
+        await tg.call("sendMessage", chat_id=chat_id, text=text)
+    except Exception:
+        log.warning("notice failed")
+        return
+    db.update_user(tg_id, pending_text="")
+
+
 def cancel_timer(chat_id: int) -> None:
     task = TIMERS.pop(chat_id, None)
     if task and not task.done():
@@ -606,11 +615,11 @@ async def main() -> None:
             )
         except TimeoutError:
             log.warning("update timed out")
-            await tg.call("sendMessage", chat_id=chat_id, text="Долго нет ответа. Нажми ещё раз.")
+            await _note(tg, db, user["id"], chat_id, "Долго нет ответа. Нажми ещё раз.")
             return
         except Exception:
             log.exception("update failed")
-            await tg.call("sendMessage", chat_id=chat_id, text="Не вышло. Нажми /start")
+            await _note(tg, db, user["id"], chat_id, "Не вышло. Нажми /start")
             return
         finally:
             stop.set()
@@ -628,8 +637,9 @@ async def main() -> None:
             message_id = await show(tg, chat_id, screen)
         except Exception:
             log.exception("show failed")
-            await tg.call("sendMessage", chat_id=chat_id, text="Не вышло отправить экран. Нажми ещё раз.")
+            await _note(tg, db, user["id"], chat_id, "Не вышло отправить экран. Нажми ещё раз.")
             return
+        db.update_user(user["id"], pending_text="")
         if screen.timer_after and message_id:
             start_timer(tg, chat_id, screen, message_id)
 
@@ -682,14 +692,19 @@ async def main() -> None:
                 )
             except Exception as exc:
                 log.warning("menu button for chat failed: %s", exc)
-        try:
-            await tg.call(
-                "sendMessage",
-                chat_id=settings.admin_id,
-                text="Бот тренировок на связи. Откройте его и нажмите /start.",
+        for row in db.pending_users():
+            await on_message(
+                {
+                    "chat": {"id": row["tg_id"], "type": "private"},
+                    "from": {
+                        "id": row["tg_id"],
+                        "username": row.get("username") or "",
+                        "first_name": row.get("full_name") or "",
+                        "language_code": row.get("language") or "",
+                    },
+                    "text": row["pending_text"],
+                }
             )
-        except Exception as exc:
-            log.warning("admin hello failed: %s", exc)
         log.info("training bot polling")
         workers: set[asyncio.Task] = set()
 
