@@ -92,8 +92,9 @@ async def main() -> None:
     ai = DeepSeek(settings.deepseek_api_key)
     service = Service(db, ai, settings.admin_id)
     client = httpx.AsyncClient(
-        timeout=httpx.Timeout(connect=15.0, read=40.0, write=20.0, pool=15.0),
-        transport=httpx.AsyncHTTPTransport(local_address="0.0.0.0"),
+        timeout=httpx.Timeout(connect=8.0, read=30.0, write=20.0, pool=8.0),
+        transport=httpx.AsyncHTTPTransport(local_address="0.0.0.0", retries=2),
+        limits=httpx.Limits(max_keepalive_connections=0),
     )
     tg = Telegram(settings.bot_token, client)
 
@@ -116,6 +117,7 @@ async def main() -> None:
             return
         user = message["from"]
         chat_id = message["chat"]["id"]
+        log.info("message from %s", user.get("id"))
         cancel_timer(chat_id)
         stop = asyncio.Event()
         typing = asyncio.create_task(pulse(chat_id, stop))
@@ -180,11 +182,11 @@ async def main() -> None:
                 updates = await tg.call(
                     "getUpdates",
                     offset=offset,
-                    timeout=20,
+                    timeout=8,
                     allowed_updates=["message"],
                 )
             except Exception as exc:
-                log.warning("poll failed: %s", exc)
+                log.warning("poll failed: %s %r", type(exc).__name__, exc)
                 await asyncio.sleep(2)
                 continue
             for update in updates or []:

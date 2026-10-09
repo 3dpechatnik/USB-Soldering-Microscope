@@ -24,6 +24,42 @@ from bot.logic import (
     short_calm,
 )
 from bot.prompts import build_system, build_user
+from bot.strings import EN, RU
+
+LABEL_ACTIONS = {
+    "btn_male": "gender:male",
+    "btn_female": "gender:female",
+    "btn_yoga": "calm:yoga",
+    "btn_qigong": "calm:qigong",
+    "btn_beloyar": "calm:beloyar",
+    "btn_monk": "calm:monk",
+    "btn_witcher": "active:witcher",
+    "btn_blade": "active:blade",
+    "btn_thor": "active:thor",
+    "btn_spider": "active:spider",
+    "btn_widow": "active:widow",
+    "btn_elektra": "active:elektra",
+    "btn_valkyrie": "active:valkyrie",
+    "btn_nikita": "active:nikita",
+    "btn_morning": "time:morning",
+    "btn_day": "time:day",
+    "btn_evening": "time:evening",
+    "btn_night": "time:night",
+    "btn_outdoor": "time:outdoor",
+    "btn_train": "go:train",
+    "btn_menu": "go:menu",
+    "btn_next": "nav:next",
+    "btn_timer": "nav:timer",
+    "btn_time": "go:time",
+    "btn_schools": "go:schools",
+    "btn_exp": "go:exp",
+    "btn_change": "go:change",
+    "btn_r1": "rate:1",
+    "btn_r2": "rate:2",
+    "btn_r3": "rate:3",
+    "btn_r4": "rate:4",
+    "btn_r5": "rate:5",
+}
 
 log = logging.getLogger(__name__)
 
@@ -93,6 +129,10 @@ class Service:
         for button in buttons:
             if button.get("label") == text:
                 return button.get("id")
+        for labels in (RU, EN):
+            for key, label in labels.items():
+                if label == text and key in LABEL_ACTIONS:
+                    return LABEL_ACTIONS[key]
         return None
 
     async def _t(self, user: dict, key: str, **values) -> str:
