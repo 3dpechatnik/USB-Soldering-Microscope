@@ -10,7 +10,7 @@ Three messages, no section headings. Warmup is the first. Calm and active share 
 
 text is one plain line: the movement and where the feet are. No speech inside an exercise. At most 4 exercises in warmup, 3 in calm, 4 in active, 3 in cooldown.
 
-opening is the send-off, two short sentences in the active school's voice: support, then one wisdom of that hero. closing is one wisdom of that hero as the person leaves. goal is one physical sentence. title is two or three concrete words from the active school. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
+opening is the send-off, two short sentences in the active school's voice: put the person in this hour, then one wisdom that hero would say. Not a compliment. closing is one wisdom of that hero as the person leaves. goal is one physical sentence. title is two or three concrete words from the active school. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
 ask is empty. Do not ask a question or a score. level is a living phrase, not a number. emoji is one character. Write the person's strings in the requested language. Keys stay English.
 
 Return only JSON:

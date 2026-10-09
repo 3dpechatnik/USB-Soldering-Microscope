@@ -9,6 +9,8 @@ from bot.logic import parse_model_json, validate_session
 log = logging.getLogger(__name__)
 
 URL = "https://api.deepseek.com/chat/completions"
+SESSION_MODEL = "deepseek-v4-pro"
+TRANSLATE_MODEL = "deepseek-flash"
 
 
 class DeepSeek:
@@ -22,15 +24,23 @@ class DeepSeek:
     async def close(self) -> None:
         await self.client.aclose()
 
-    async def complete(self, system: str, user: str, temperature: float, max_tokens: int) -> str:
+    async def complete(
+        self,
+        system: str,
+        user: str,
+        temperature: float,
+        max_tokens: int,
+        model: str,
+    ) -> str:
         response = await self.client.post(
             URL,
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={
-                "model": "deepseek-chat",
+                "model": model,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "response_format": {"type": "json_object"},
+                "thinking": {"type": "disabled"},
                 "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
@@ -44,7 +54,9 @@ class DeepSeek:
         return body["choices"][0]["message"]["content"]
 
     async def _cards(self, system: str, user: str) -> dict:
-        raw = await self.complete(system, user, temperature=0.8, max_tokens=2200)
+        raw = await self.complete(
+            system, user, temperature=0.8, max_tokens=2200, model=SESSION_MODEL
+        )
         try:
             return validate_session(parse_model_json(raw))
         except Exception:
@@ -54,6 +66,7 @@ class DeepSeek:
                 user + "\n\nThe previous reply was not valid. Return only the JSON object.",
                 temperature=0.4,
                 max_tokens=2200,
+                model=SESSION_MODEL,
             )
             return validate_session(parse_model_json(raw))
 
@@ -70,6 +83,8 @@ class DeepSeek:
             "Return only a JSON object with the same keys."
         )
         user = f"target_language: {language_name}\n{json.dumps(mapping, ensure_ascii=False)}"
-        raw = await self.complete(system, user, temperature=0.2, max_tokens=4000)
+        raw = await self.complete(
+            system, user, temperature=0.2, max_tokens=4000, model=TRANSLATE_MODEL
+        )
         data = parse_model_json(raw)
         return {key: value for key, value in data.items() if isinstance(value, str)}

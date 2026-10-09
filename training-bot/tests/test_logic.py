@@ -77,6 +77,10 @@ class LogicTest(unittest.TestCase):
         self.assertIn("one plain line", system)
         self.assertIn("send-off", system)
         self.assertIn("one wisdom of that hero", system)
+        self.assertIn("Not a compliment", system)
+        from bot.deepseek import SESSION_MODEL
+
+        self.assertEqual(SESSION_MODEL, "deepseek-v4-pro")
         self.assertNotIn("four short lines", system)
         self.assertIn("Evening, not night", build_system("early", "evening", "yoga", "witcher", False))
         self.assertIn("Тихая засада", system)
