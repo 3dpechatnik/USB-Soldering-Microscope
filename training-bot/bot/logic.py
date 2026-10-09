@@ -268,6 +268,30 @@ def deck(session: dict) -> list[dict]:
     return cards
 
 
+def share_time(session: dict, minutes: tuple[int, int, int, int]) -> dict:
+    """One clock per message, so every exercise on that message lasts the same time."""
+    budgets = {
+        "warmup": minutes[0] * 60,
+        "main": (minutes[1] + minutes[2]) * 60,
+        "ending": minutes[3] * 60,
+    }
+    grouped: dict[str, list[dict]] = {name: [] for name, _roles in BLOCKS}
+    for part in session.get("parts") or []:
+        role = part.get("role")
+        block = next((name for name, roles in BLOCKS if role in roles), None)
+        if block is None:
+            continue
+        grouped[block].extend(part.get("exercises") or [])
+    for block, exercises in grouped.items():
+        count = len(exercises)
+        if count == 0:
+            continue
+        slot = max(15, int(round(budgets[block] / count / 15.0) * 15))
+        for exercise in exercises:
+            exercise["seconds"] = slot
+    return session
+
+
 def exercise_names(session: dict) -> list[str]:
     names = []
     for part in session.get("parts") or []:

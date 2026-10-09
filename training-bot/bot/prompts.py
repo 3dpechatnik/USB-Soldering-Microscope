@@ -23,8 +23,7 @@ Return only a JSON object, with no markdown fence:
 
 roles in order: warmup, calm, active, cooldown.
 The name of a part may be empty. The reader does not see it.
-seconds is how long that exercise takes. Inside each part, the seconds should add up to that part's minutes.
-reps is the number of repetitions. Use 0 when the dose is a hold and only seconds matter. A repeated move needs both reps and the seconds the set takes.
+The person sees one timer on each message. Warmup is the first message. Calm and active share the second message. Cooldown is the third. Every exercise on a message uses the same seconds. Do not assign 60 seconds to one move and 180 to the next. Reps may differ. Use 0 when the dose is a hold and only seconds matter. A repeated move needs both reps and that same number of seconds.
 text on this pass is one plain line: the movement and where the feet are. A later pass speaks the pose in the teacher's voice. Do not write that speech here.
 opening is two short sentences in the active school's voice. Put the person in this hour and name both schools. No speech about the soul.
 title is a concrete picture from the active school, two or three words, not a compliment, without quotes inside. Never reuse a title from the avoid list. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
@@ -44,7 +43,7 @@ BANDS = {
 
 DAYS = {
     "morning": "Morning. Wake the body, do not shock it. Start lying or sitting, then joints, then the calm school, then a brisk active block. A jump may come only late, and it lands soft. The cooldown carries one image of the day beginning. Warmup and cooldown stay calm. The active school is only the middle.",
-    "day": "Day. This is the working session. Warm up until there is a little heat. No fast moves on cold joints. The calm school is a short flow or a strong standing sequence. The active school is intervals or circuits in the middle only. Under the early band use about 40 seconds of work and 20 seconds of rest. Warmup and cooldown stay calm.",
+    "day": "Day. This is the working session. Warm up until there is a little heat. No fast moves on cold joints. The calm school is a short flow or a strong standing sequence. The active school is intervals or circuits in the middle only. Work and rest share the same slot as the other exercises on that message. Warmup and cooldown stay calm.",
     "evening": "Evening, not night. The middle is the active school and it is the longest part: controlled pace, slow strength, no sprint. Do not turn those exercises into the calm school and do not fill them with the calm school's poses. The calm school opens the hour and closes it. Warmup and cooldown stay calm. The cooldown lets the day out.",
     "night": "Night. The whole session is calm, including the active school. Held postures, quiet strength, slow shadow movement, breath. No jumps, no fast feet, no intervals. The cooldown stays still, with one night image.",
     "outdoor": "Outdoors. Walking, steps, terrain, a bench or a tree for support. Prefer standing, or sitting on a support, to lying on the ground. The active school is field work in the middle: carries, walking lunges, quiet landings. The calm school stays upright. Warmup and cooldown stay calm.",

@@ -13,6 +13,7 @@ from bot.logic import (
     minutes_for,
     progress_text,
     scale_split,
+    share_time,
     tick_delay,
     validate_session,
 )
@@ -177,6 +178,15 @@ class LogicTest(unittest.TestCase):
         self.assertEqual([card["block"] for card in cards], ["warmup", "main", "ending"])
         self.assertEqual([item["name"] for item in cards[1]["exercises"]], ["Гора", "Стойка"])
         self.assertEqual(cards[1]["seconds"], 105)
+        shared = share_time(session, (8, 10, 17, 10))
+        shared_cards = deck(shared)
+        for card in shared_cards:
+            slots = {item["seconds"] for item in card["exercises"]}
+            self.assertEqual(len(slots), 1)
+            slot = next(iter(slots))
+            self.assertEqual(card["seconds"], slot * len(card["exercises"]))
+        main_slots = [item["seconds"] for item in shared_cards[1]["exercises"]]
+        self.assertEqual(main_slots, [810, 810])
 
     def test_reps_sit_beside_the_time(self):
         self.assertEqual(dose_line(60, 0, "{n} раз"), "1:00")

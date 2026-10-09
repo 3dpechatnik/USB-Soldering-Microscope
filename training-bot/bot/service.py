@@ -21,6 +21,7 @@ from bot.logic import (
     duration_for,
     exercise_names,
     minutes_for,
+    share_time,
     progress_text,
     short_calm,
 )
@@ -640,6 +641,7 @@ class Service:
             log.exception("workout generation failed")
             fail = esc(await self._t(user, "fail"))
             return await self._home(user, lead=fail)
+        payload = share_time(payload, minutes)
         session = self.db.create_session(
             user["tg_id"],
             choice["id"],
