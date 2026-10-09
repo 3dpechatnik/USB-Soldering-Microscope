@@ -311,6 +311,26 @@ class AddressRotationTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(TELEGRAM_IPV6_SOURCE, "2a04:bac0:1000:4f8::1")
 
+    async def test_ipv6_blip_does_not_return_to_ipv4(self):
+        from bot.telegram_app import TelegramIPv4
+
+        backend = TelegramIPv4()
+        backend._v4 = ["203.0.113.1"]
+        backend._v6 = ["2001:db8::9"]
+        backend._refreshed = 10**9
+        backend._on_v6 = True
+        backend._v4_down_until = 10**12
+        calls = []
+
+        async def connect(host, port, timeout=None, local_address=None, socket_options=None):
+            calls.append(host)
+            raise TimeoutError("down")
+
+        backend._open = connect
+        with self.assertRaises(TimeoutError):
+            await backend.connect_tcp("api.telegram.org", 443, timeout=5)
+        self.assertEqual(calls, ["2001:db8::9"])
+
 
 if __name__ == "__main__":
     unittest.main()

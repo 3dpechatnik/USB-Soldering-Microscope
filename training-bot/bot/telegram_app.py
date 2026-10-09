@@ -119,6 +119,15 @@ class TelegramIPv4(httpcore.AsyncNetworkBackend):
         self._on_v6 = False
         self._ipv6_source = ipv6_source
 
+    def prefer_ipv6(self) -> None:
+        """Stay on IPv6 after a dead IPv4 path, including a path that accepts TCP and then hangs."""
+        if not self._v6:
+            return
+        self._v4_down_until = time.monotonic() + _V4_HOLD
+        if not self._on_v6:
+            log.warning("telegram ipv4 down, backup ipv6 %s", self._ipv6_source)
+            self._on_v6 = True
+
     async def _resolve(self, family: int) -> list[str] | None:
         loop = asyncio.get_running_loop()
         try:
@@ -211,6 +220,8 @@ class TelegramIPv4(httpcore.AsyncNetworkBackend):
         v4_each = min(each, 2.0) if self._v6 else each
         v4_attempts = 2 if self._v6 else 3
         now = time.monotonic()
+        # A dead IPv4 route can still accept the TCP handshake and then hang.
+        # While the hold lasts, do not touch it.
         v4_first = now >= self._v4_down_until or not self._v6
         last: Exception | None = None
         if v4_first and self._v4:
@@ -221,10 +232,7 @@ class TelegramIPv4(httpcore.AsyncNetworkBackend):
             except Exception as exc:
                 last = exc
             else:
-                if self._on_v6:
-                    log.warning("telegram ipv4 is back")
                 self._on_v6 = False
-                self._v4_down_until = 0.0
                 return stream
         if self._v6:
             try:
@@ -233,24 +241,8 @@ class TelegramIPv4(httpcore.AsyncNetworkBackend):
                 )
             except Exception as exc:
                 last = exc
-                self._v4_down_until = 0.0
             else:
-                if not self._on_v6:
-                    log.warning("telegram ipv4 down, backup ipv6 %s", self._ipv6_source)
-                self._on_v6 = True
-                self._v4_down_until = time.monotonic() + _V4_HOLD
-                return stream
-        if not v4_first and self._v4:
-            try:
-                stream = await self._dial(
-                    self._v4, "_v4_index", "0.0.0.0", port, v4_each, socket_options, v4_attempts
-                )
-            except Exception as exc:
-                last = exc
-            else:
-                log.warning("telegram ipv6 down, back to ipv4")
-                self._on_v6 = False
-                self._v4_down_until = 0.0
+                self.prefer_ipv6()
                 return stream
         assert last is not None
         raise last
@@ -307,11 +299,38 @@ PROTECTED_METHODS = frozenset(
 
 
 class Telegram:
-    def __init__(self, token: str, send: httpx.AsyncClient, poll: httpx.AsyncClient):
+    def __init__(
+        self,
+        token: str,
+        send: httpx.AsyncClient,
+        poll: httpx.AsyncClient,
+        route: TelegramIPv4 | None = None,
+    ):
         self.url = f"https://api.telegram.org/bot{token}"
         self.send = send
         self.poll = poll
+        self.route = route
         self.gate = asyncio.Semaphore(20)
+
+    def _lost(self, exc: BaseException) -> None:
+        if self.route is None:
+            return
+        if isinstance(
+            exc,
+            (
+                TimeoutError,
+                httpx.TransportError,
+                httpcore.ConnectError,
+                httpcore.ConnectTimeout,
+                httpcore.ReadError,
+                httpcore.ReadTimeout,
+                httpcore.WriteError,
+                httpcore.WriteTimeout,
+                httpcore.NetworkError,
+                httpcore.ProtocolError,
+            ),
+        ):
+            self.route.prefer_ipv6()
 
     async def _post(self, client: httpx.AsyncClient, method: str, request_timeout, payload: dict):
         kwargs = {"json": payload}
@@ -333,17 +352,26 @@ class Telegram:
                     self._post(self.send, method, request_timeout, payload),
                     timeout=15,
                 )
-            except TimeoutError:
-                log.warning("telegram %s timed out", method)
+            except Exception as exc:
+                self._lost(exc)
+                if isinstance(exc, TimeoutError):
+                    log.warning("telegram %s timed out", method)
                 raise
 
     async def long_poll(self, **payload):
-        return await self._post(
-            self.poll,
-            "getUpdates",
-            httpx.Timeout(connect=4.0, read=8.0, write=8.0, pool=4.0),
-            payload,
-        )
+        try:
+            return await asyncio.wait_for(
+                self._post(
+                    self.poll,
+                    "getUpdates",
+                    httpx.Timeout(connect=4.0, read=8.0, write=8.0, pool=4.0),
+                    payload,
+                ),
+                timeout=12,
+            )
+        except Exception as exc:
+            self._lost(exc)
+            raise
 
 
 def markup(screen: Screen) -> dict:
@@ -507,7 +535,7 @@ async def main() -> None:
     poll = open_client(
         backend, 4, httpx.Timeout(connect=4.0, read=8.0, write=8.0, pool=4.0)
     )
-    tg = Telegram(settings.bot_token, send, poll)
+    tg = Telegram(settings.bot_token, send, poll, backend)
 
     async def pulse(chat_id: int, stop: asyncio.Event) -> None:
         while not stop.is_set():
