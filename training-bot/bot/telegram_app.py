@@ -19,6 +19,7 @@ from bot.service import Screen, Service
 
 log = logging.getLogger(__name__)
 TIMERS: dict[int, asyncio.Task] = {}
+MENU_CHATS: set[int] = set()
 MENU_RU = [
     {"command": "review", "description": "Оставить отзыв"},
     {"command": "subscribe", "description": "Подписка"},
@@ -346,6 +347,17 @@ async def main() -> None:
         user = message["from"]
         chat_id = message["chat"]["id"]
         log.info("message from %s", user.get("id"))
+        if chat_id not in MENU_CHATS:
+            MENU_CHATS.add(chat_id)
+            try:
+                await tg.call(
+                    "setChatMenuButton",
+                    chat_id=chat_id,
+                    menu_button={"type": "commands"},
+                )
+            except Exception:
+                MENU_CHATS.discard(chat_id)
+                log.warning("menu button for chat failed")
         cancel_timer(chat_id)
         stop = asyncio.Event()
         typing = asyncio.create_task(pulse(chat_id, stop))
@@ -437,6 +449,15 @@ async def main() -> None:
             await tg.call("setChatMenuButton", menu_button={"type": "commands"})
         except Exception as exc:
             log.warning("menu button failed: %s", exc)
+        for tg_id in db.user_ids():
+            try:
+                await tg.call(
+                    "setChatMenuButton",
+                    chat_id=tg_id,
+                    menu_button={"type": "commands"},
+                )
+            except Exception as exc:
+                log.warning("menu button for chat failed: %s", exc)
         try:
             await tg.call(
                 "sendMessage",

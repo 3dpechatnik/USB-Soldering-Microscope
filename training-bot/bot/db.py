@@ -102,6 +102,10 @@ class DB:
         self.conn.commit()
         return self.user(tg_id)
 
+    def user_ids(self) -> list[int]:
+        rows = self.conn.execute("SELECT tg_id FROM users").fetchall()
+        return [int(row["tg_id"]) for row in rows]
+
     def user(self, tg_id: int) -> dict | None:
         row = self.conn.execute("SELECT * FROM users WHERE tg_id=?", (tg_id,)).fetchone()
         return dict(row) if row else None
