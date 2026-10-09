@@ -17,6 +17,7 @@ from bot.logic import (
     block_reason,
     clock,
     deck,
+    format_clock,
     duration_for,
     exercise_names,
     minutes_for,
@@ -75,6 +76,9 @@ class Screen:
     admin_text: str | None = None
     timer_after: int | None = None
     timer_done_text: str | None = None
+    timer_body: str | None = None
+    timer_label: str = ""
+    timer_only: bool = False
     inline: bool = False
 
 
@@ -314,42 +318,74 @@ class Service:
         text = f"{await self._heading(user, 'pay_title')}\n\n{esc(await self._t(user, 'pay_body'))}"
         return await self._pack(user, text, actions, admin_text=admin)
 
-    async def _card(self, user: dict, session: dict | None = None) -> Screen:
-        session = session or self.db.active_session(user["tg_id"])
+    def _position(self, session: dict) -> tuple[dict, list[dict], int]:
         payload = json.loads(session["payload"])
         cards = deck(payload)
-        index = max(0, min(int(session["index_pos"]), len(cards) - 1))
+        index = int(session["index_pos"])
+        if index < 0 or index > len(cards) - 1:
+            index = 0
+            self.db.set_index(session["id"], 0)
+            session["index_pos"] = 0
+        return payload, cards, index
+
+    async def _card(self, user: dict, session: dict | None = None) -> Screen:
+        session = session or self.db.active_session(user["tg_id"])
+        payload, cards, index = self._position(session)
         card = cards[index]
-        if card["type"] == "closing":
+        last = index == len(cards) - 1
+        if last:
             self.db.update_user(user["tg_id"], screen="rating")
         else:
             self.db.update_user(user["tg_id"], screen="card")
         user = self.db.user(user["tg_id"])
-        text = self._render(payload, card)
-        actions = await self._workout_actions(user, card["type"], index)
-        return await self._pack(user, text, actions)
+        label = await self._t(user, f"block_{card['block']}")
+        body = self._render(payload, card, index == 0, last, label)
+        actions = await self._workout_actions(user, index, last)
+        clock_line = format_clock(card["seconds"], card["seconds"], running=False)
+        text = f"{clock_line}\n\n{body}"
+        extra = {}
+        if self._timer_allowed(user):
+            extra = {
+                "timer_after": card["seconds"],
+                "timer_done_text": await self._t(user, "timer_done"),
+                "timer_body": body,
+                "timer_label": label,
+            }
+        return await self._pack(user, text, actions, **extra)
 
-    def _render(self, payload: dict, card: dict) -> str:
-        if card["type"] == "title":
-            return (
-                f"<b>{esc(payload['emoji'])}  {esc(payload['title'])}</b>\n\n"
-                f"{esc(payload['opening'])}\n\n{esc(payload['level'])}\n\n{esc(payload['goal'])}"
-            )
-        if card["type"] == "closing":
-            return (
-                f"<b>{esc(payload['emoji'])}  {esc(payload['title'])}</b>\n\n"
-                f"{esc(payload['closing'])}\n\n{esc(payload['ask'])}"
-            )
-        return (
-            f"<i>{esc(card['part'])}</i>\n\n"
-            f"<b>{esc(card['name'])}</b>\n{esc(clock(card['seconds']))}\n\n{esc(card['text'])}"
-        )
+    def _timer_allowed(self, user: dict) -> bool:
+        return block_reason(self.is_admin(user["tg_id"]), 0, "timer") is None
 
-    async def _workout_actions(self, user: dict, kind: str, index: int) -> list[tuple[str, str]]:
+    def _render(self, payload: dict, card: dict, first: bool, last: bool, label: str) -> str:
+        lines: list[str] = [f"<b>{esc(label)}</b>", ""]
+        if first:
+            lines.extend(
+                [
+                    f"<b>{esc(payload['emoji'])}  {esc(payload['title'])}</b>",
+                    "",
+                    esc(payload["opening"]),
+                    "",
+                    esc(payload["level"]),
+                    "",
+                    esc(payload["goal"]),
+                    "",
+                ]
+            )
+        for exercise in card["exercises"]:
+            lines.append(f"<b>{esc(exercise['name'])}</b>  {esc(clock(exercise['seconds']))}")
+            lines.append(esc(exercise["text"]))
+            lines.append("")
+        if last:
+            lines.append(esc(payload["closing"]))
+            lines.append("")
+            lines.append(esc(payload["ask"]))
+        return "\n".join(lines).strip()
+
+    async def _workout_actions(self, user: dict, index: int, last: bool) -> list[tuple[str, str]]:
         actions = []
         if index > 0:
             actions.append(("nav:prev", await self._t(user, "btn_back")))
-        if kind != "closing":
+        if not last:
             actions.append(("nav:next", await self._t(user, "btn_next")))
         else:
             for score in range(1, 6):
@@ -545,9 +581,7 @@ class Service:
         session = self.db.active_session(user["tg_id"])
         if session is None:
             return await self._home(user)
-        payload = json.loads(session["payload"])
-        cards = deck(payload)
-        index = int(session["index_pos"])
+        _payload, cards, index = self._position(session)
         if action == "nav:next":
             index = min(index + 1, len(cards) - 1)
         else:
@@ -566,20 +600,22 @@ class Service:
         if session is None:
             text = esc(await self._t(user, "timer_wait"))
             return await self._pack(user, text, current.actions)
-        payload = json.loads(session["payload"])
-        cards = deck(payload)
-        card = cards[int(session["index_pos"])]
-        if card["type"] != "exercise":
+        _payload, cards, index = self._position(session)
+        card = cards[index]
+        if card["type"] != "block":
             text = esc(await self._t(user, "timer_wait"))
             return await self._pack(user, text, current.actions)
-        running = esc(await self._t(user, "timer_running", clock=clock(card["seconds"])))
         done = await self._t(user, "timer_done")
+        label = await self._t(user, f"block_{card['block']}")
+        text = f"{format_clock(card['seconds'], card['seconds'], running=True)}\n{esc(label)}"
         return await self._pack(
             user,
-            running,
+            text,
             current.actions,
             timer_after=card["seconds"],
             timer_done_text=done,
+            timer_label=label,
+            timer_only=True,
         )
 
     async def _rate(self, user: dict, score: int) -> Screen:
@@ -588,9 +624,8 @@ class Service:
         session = self.db.active_session(user["tg_id"])
         if session is None or user["screen"] != "rating":
             return await self._route(user)
-        payload = json.loads(session["payload"])
-        cards = deck(payload)
-        if cards[int(session["index_pos"])]["type"] != "closing":
+        payload, cards, index = self._position(session)
+        if index != len(cards) - 1:
             return await self._card(user, session)
         self.db.finish_session(session["id"])
         hours = self.db.add_hour(session["choice_id"])

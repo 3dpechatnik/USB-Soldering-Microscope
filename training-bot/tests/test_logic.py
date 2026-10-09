@@ -5,10 +5,13 @@ from bot.logic import (
     apply_short_calm,
     band_for,
     block_reason,
+    deck,
     duration_for,
+    format_clock,
     minutes_for,
     progress_text,
     scale_split,
+    tick_delay,
     validate_session,
 )
 from bot.prompts import build_system
@@ -91,6 +94,53 @@ class LogicTest(unittest.TestCase):
             }
         )
         self.assertEqual(session["parts"][0]["exercises"][0]["seconds"], 60)
+
+    def test_deck_groups_three_blocks(self):
+        session = validate_session(
+            {
+                "opening": "Утро.",
+                "emoji": "🌅",
+                "title": "Свет",
+                "level": "Новичок",
+                "goal": "Проснуться.",
+                "parts": [
+                    {
+                        "name": "Вход",
+                        "role": "warmup",
+                        "exercises": [{"name": "Шея", "seconds": 60, "text": "Медленно."}],
+                    },
+                    {
+                        "name": "Йога",
+                        "role": "calm",
+                        "exercises": [{"name": "Гора", "seconds": 60, "text": "Стой."}],
+                    },
+                    {
+                        "name": "Ведьмак",
+                        "role": "active",
+                        "exercises": [{"name": "Стойка", "seconds": 45, "text": "Мягко."}],
+                    },
+                    {
+                        "name": "Тишина",
+                        "role": "cooldown",
+                        "exercises": [{"name": "Лёжа", "seconds": 60, "text": "Дыши."}],
+                    },
+                ],
+                "closing": "Хватит.",
+                "ask": "Насколько тяжело?",
+            }
+        )
+        cards = deck(session)
+        self.assertEqual([card["block"] for card in cards], ["warmup", "main", "ending"])
+        self.assertEqual([item["name"] for item in cards[1]["exercises"]], ["Гора", "Стойка"])
+        self.assertEqual(cards[1]["seconds"], 105)
+
+    def test_clock_counts_real_time(self):
+        shown = format_clock(90, 120, step=1, running=True)
+        self.assertIn("1:30", shown)
+        self.assertIn("🕑", shown)
+        self.assertIn("▰", shown)
+        self.assertEqual(tick_delay(90), 5)
+        self.assertEqual(tick_delay(30), 1)
 
 
 if __name__ == "__main__":

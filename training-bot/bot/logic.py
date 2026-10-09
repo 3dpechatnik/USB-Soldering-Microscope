@@ -90,6 +90,32 @@ def clock(seconds: int) -> str:
     return f"{minutes}:{rest:02d}"
 
 
+FACES = "🕐🕑🕒🕓🕔🕕🕖🕗🕘🕙🕚🕛"
+BLOCKS = (
+    ("warmup", ("warmup",)),
+    ("main", ("calm", "active")),
+    ("ending", ("cooldown",)),
+)
+
+
+def timer_bar(left: int, total: int) -> str:
+    total = max(1, int(total))
+    left = max(0, min(int(left), total))
+    filled = round(10 * left / total)
+    return "▰" * filled + "▱" * (10 - filled)
+
+
+def format_clock(left: int, total: int, step: int = 0, running: bool = False) -> str:
+    face = FACES[step % len(FACES)] if running else "⏱"
+    return f"<b>{face}  {clock(left)}</b>\n{timer_bar(left, total)}"
+
+
+def tick_delay(left: int) -> int:
+    if left > 60:
+        return 5
+    return 1
+
+
 def progress_text(template: str, hours: int) -> str:
     done = max(0, min(10000, int(hours)))
     percent = f"{done / 100:.2f}%"
@@ -155,19 +181,34 @@ def validate_session(data: dict) -> dict:
 
 
 def deck(session: dict) -> list[dict]:
-    cards = [{"type": "title"}]
+    grouped: dict[str, list[dict]] = {block: [] for block, _roles in BLOCKS}
     for part in session.get("parts") or []:
+        role = part.get("role")
+        block = next((name for name, roles in BLOCKS if role in roles), None)
+        if block is None:
+            continue
         for exercise in part.get("exercises") or []:
-            cards.append(
+            grouped[block].append(
                 {
-                    "type": "exercise",
                     "part": part.get("name") or "",
                     "name": exercise["name"],
                     "seconds": exercise["seconds"],
                     "text": exercise["text"],
                 }
             )
-    cards.append({"type": "closing"})
+    cards = []
+    for block, _roles in BLOCKS:
+        exercises = grouped[block]
+        if not exercises:
+            continue
+        cards.append(
+            {
+                "type": "block",
+                "block": block,
+                "seconds": sum(item["seconds"] for item in exercises),
+                "exercises": exercises,
+            }
+        )
     return cards
 
 
