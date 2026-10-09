@@ -1,0 +1,27 @@
+[Unit]
+Description=Training Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=trainer
+Group=trainer
+WorkingDirectory=/opt/training-bot
+EnvironmentFile=/opt/training-bot/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/training-bot/.venv/bin/python -m bot
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+MemoryMax=300M
+MemoryHigh=240M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/training-bot
+
+[Install]
+WantedBy=multi-user.target
