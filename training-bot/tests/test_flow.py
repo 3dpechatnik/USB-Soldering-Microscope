@@ -46,7 +46,7 @@ class FakeAI:
     def __init__(self):
         self.calls = 0
 
-    async def session(self, system, user, voice=None):
+    async def session(self, system, user):
         self.calls += 1
         return SESSION
 

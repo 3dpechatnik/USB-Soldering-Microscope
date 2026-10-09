@@ -1,38 +1,20 @@
 from __future__ import annotations
 
-CORE = """You write one training session. The person already has a calm school and an active school. Join them into a single healthy session: one training, not two lessons set side by side.
+CORE = """Write one training session as short cards. Join one calm school and one active school into a single practice.
 
-The beginning is calm. The warmup and the calm school are that beginning.
-The end is always calm. The cooldown settles the breath and the joints in the calm school.
-The active school is the middle, and only the middle.
-At night the whole session is calm, including the active school: still strength, slow movement, breath. No sharp work at night.
-One rise is enough. Do not stack two peaks.
+The beginning is calm: warmup, then the calm school. The active school is only the middle. The end is calm. At night the whole session is calm, including the active school. One rise. No plot, no enemies, no lecture, no progress line. Do not repeat a title or a main exercise from the avoid list.
 
-This is real practice. Do not add a plot, enemies, quests, or a lecture. Do not mention these instructions. Do not write a progress line. Do not repeat a title or a main exercise from the avoid list.
+If limits is not "none", drop that family of movements and name it once. For sharp pain, chest pain, dizziness, or numbness, quiet breathing only.
 
-If a limit is included and it is not "none", remove that family of movements and name the removal once inside the text. For sharp pain, chest pain, dizziness, or numbness, make the session quiet breathing only.
+Three messages, no section headings. Warmup is the first. Calm and active share the second. Cooldown is the third. One timer per message, so every exercise on a message has the same seconds. Reps may differ. Use 0 for a hold.
 
-The person sees three messages, nothing else. The first holds every warmup exercise, one after another, as one continuous entry. The second holds the calm school and then the active school, as one continuous practice. The third holds the cooldown. Do not write a heading that names the section: no "warmup", "main", "cooldown", and no translation of those words.
+text is one plain line: the movement and where the feet are. No speech inside an exercise. At most 4 exercises in warmup, 3 in calm, 4 in active, 3 in cooldown.
 
-Greet the person as the teacher of the active school. That teacher leads the whole hour. The calm school chooses the quiet movements at the beginning and at the end. It does not take over the voice. The active school gives the names, the manner, and the color. Support the person. This is a meeting at the start of practice, not a plot, not a quest, and not a lecture.
+opening is the send-off, two short sentences in the active school's voice: support, then one wisdom of that hero. closing is one wisdom of that hero as the person leaves. goal is one physical sentence. title is two or three concrete words from the active school. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
+ask is empty. Do not ask a question or a score. level is a living phrase, not a number. emoji is one character. Write the person's strings in the requested language. Keys stay English.
 
-Write every string the person reads in the language named in the request. Keys stay in English.
-
-Return only a JSON object, with no markdown fence:
-{"opening":"","emoji":"","title":"","level":"","goal":"","parts":[{"name":"","role":"warmup","exercises":[{"name":"","seconds":60,"reps":0,"text":""}]}],"closing":"","ask":""}
-
-roles in order: warmup, calm, active, cooldown.
-The name of a part may be empty. The reader does not see it.
-The person sees one timer on each message. Warmup is the first message. Calm and active share the second message. Cooldown is the third. Every exercise on a message uses the same seconds. Do not assign 60 seconds to one move and 180 to the next. Reps may differ. Use 0 when the dose is a hold and only seconds matter. A repeated move needs both reps and that same number of seconds.
-text on this pass is one plain line: the movement and where the feet are. A later pass speaks the pose in the teacher's voice. Do not write that speech here.
-opening is two short sentences in the active school's voice. Put the person in this hour and name both schools. No speech about the soul.
-title is a concrete picture from the active school, two or three words, not a compliment, without quotes inside. Never reuse a title from the avoid list. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
-Exercise names are interesting and physical. In the active school they carry that school's color. In the calm school they stay quiet and clear. Name the movement, not the section it belongs to.
-level is a living phrase for the hours already completed. Do not announce the numeric bands.
-goal is one sentence the teacher would say.
-closing is the teacher letting the person go: one or two calm sentences in the same voice.
-ask is an empty string. Do not ask a question. Do not ask for a review, a comment, a score from 1 to 5, or how the session felt. The buttons after the last message are not part of the text.
-emoji is one character for the time of day."""
+Return only JSON:
+{"opening":"","emoji":"","title":"","level":"","goal":"","parts":[{"name":"","role":"warmup","exercises":[{"name":"","seconds":60,"reps":0,"text":""}]}],"closing":"","ask":""}"""
 
 BANDS = {
     "early": "First hours. Technique, short holds, an easier option beside a hard move. The calm school takes a full part.",
@@ -108,25 +90,6 @@ LANGUAGE_NAMES = {
 
 def language_name(code: str) -> str:
     return LANGUAGE_NAMES.get(code, f"the language with IETF code {code}")
-
-
-VOICE = """You receive finished training cards. Describe them. Do not add or remove an exercise. Do not change a role. The seconds and the reps stay as given.
-
-You are the teacher of the active school for the whole hour. The calm school only chooses which quiet movements open and close the hour. Speak in that teacher's manner even on those quiet movements. In the active role, the movements belong to the active school. Do not rewrite them as the calm school. Evening is not night: the active block is that school's work at a controlled pace.
-
-Each exercise text is four short lines, separated by line breaks: feet and knees; hips, hands, and where the eyes go; breath; the easier version. The person must be able to do the pose from the text alone. Verb first. Each line carries one fact he can check. No empty praise. No review and no question.
-
-opening is two or three sentences from this teacher. title is a concrete picture from the active school, two or three words. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
-goal is one sentence this teacher would say.
-closing is this teacher letting the person go, one or two sentences.
-ask is an empty string.
-level stays a living phrase.
-emoji stays one character.
-Return only the same JSON object, with the texts replaced."""
-
-
-def build_voice(day: str, calm: str, active: str) -> str:
-    return "\n\n".join([VOICE, DAYS[day], CALM[calm], ACTIVE[active]])
 
 
 def build_system(band: str, day: str, calm: str, active: str, calm_is_short: bool) -> str:

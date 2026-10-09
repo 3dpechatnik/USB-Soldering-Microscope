@@ -17,7 +17,7 @@ from bot.logic import (
     tick_delay,
     validate_session,
 )
-from bot.prompts import build_system, build_user, build_voice
+from bot.prompts import build_system, build_user
 
 
 class LogicTest(unittest.TestCase):
@@ -69,18 +69,16 @@ class LogicTest(unittest.TestCase):
 
     def test_prompt_is_the_night_pair_only(self):
         system = build_system("early", "night", "yoga", "witcher", False)
-        self.assertIn("Join them into a single healthy session", system)
+        self.assertIn("single practice", system)
         self.assertIn("whole session is calm", system)
         self.assertIn("calm school is yoga", system)
         self.assertIn("active school is the Witcher", system)
-        self.assertIn("teacher of the active school", system)
+        self.assertIn("active school's voice", system)
         self.assertIn("one plain line", system)
-        self.assertIn("Do not ask a question", system)
-        self.assertIn("score from 1 to 5", system)
-        voice = build_voice("evening", "yoga", "witcher")
-        self.assertIn("four short lines", voice)
-        self.assertIn("Evening, not night", voice)
-        self.assertIn("Witcher instructor", voice)
+        self.assertIn("send-off", system)
+        self.assertIn("one wisdom of that hero", system)
+        self.assertNotIn("four short lines", system)
+        self.assertIn("Evening, not night", build_system("early", "evening", "yoga", "witcher", False))
         self.assertIn("Тихая засада", system)
         self.assertNotIn("This is the working session", system)
         self.assertNotIn("Black Widow", system)

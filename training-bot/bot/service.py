@@ -25,7 +25,7 @@ from bot.logic import (
     progress_text,
     short_calm,
 )
-from bot.prompts import build_system, build_user, build_voice
+from bot.prompts import build_system, build_user
 from bot.strings import EN, RU
 
 LABEL_ACTIONS = {
@@ -621,7 +621,6 @@ class Service:
             choice["active"],
             short_calm(hours, time_of_day),
         )
-        voice = build_voice(time_of_day, choice["calm"], choice["active"])
         if self._on_wait:
             await self._on_wait(await self._t(user, "gathering"))
         request = build_user(
@@ -636,7 +635,7 @@ class Service:
         )
         try:
             async with self._ai_slots:
-                payload = await self.ai.session(system, request, voice)
+                payload = await self.ai.session(system, request)
         except Exception:
             log.exception("workout generation failed")
             fail = esc(await self._t(user, "fail"))
