@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import httpx
@@ -54,19 +55,26 @@ class DeepSeek:
         return body["choices"][0]["message"]["content"]
 
     async def _cards(self, system: str, user: str) -> dict:
-        raw = await self.complete(
-            system, user, temperature=0.8, max_tokens=2200, model=SESSION_MODEL
+        log.info("session request started")
+        raw = await asyncio.wait_for(
+            self.complete(
+                system, user, temperature=0.8, max_tokens=2200, model=SESSION_MODEL
+            ),
+            timeout=70,
         )
         try:
             return validate_session(parse_model_json(raw))
         except Exception:
             log.warning("session json failed, retrying once")
-            raw = await self.complete(
-                system,
-                user + "\n\nThe previous reply was not valid. Return only the JSON object.",
-                temperature=0.4,
-                max_tokens=2200,
-                model=SESSION_MODEL,
+            raw = await asyncio.wait_for(
+                self.complete(
+                    system,
+                    user + "\n\nThe previous reply was not valid. Return only the JSON object.",
+                    temperature=0.4,
+                    max_tokens=2200,
+                    model=SESSION_MODEL,
+                ),
+                timeout=70,
             )
             return validate_session(parse_model_json(raw))
 

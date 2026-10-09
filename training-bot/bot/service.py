@@ -622,7 +622,10 @@ class Service:
             short_calm(hours, time_of_day),
         )
         if self._on_wait:
-            await self._on_wait(await self._t(user, "gathering"))
+            try:
+                await self._on_wait(await self._t(user, "gathering"))
+            except Exception:
+                log.warning("gathering note failed")
         request = build_user(
             user["language"],
             hours,

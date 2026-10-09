@@ -41,15 +41,22 @@ class TelegramIPv4(httpcore.AsyncNetworkBackend):
         self._index = 0
         self._refreshed = 0.0
 
-    def _ensure_ips(self) -> None:
+    async def _load_ips(self) -> None:
         now = time.monotonic()
         if self._ips and now - self._refreshed < 600:
             return
+        loop = asyncio.get_running_loop()
         try:
-            found = socket.getaddrinfo(
-                "api.telegram.org", 443, socket.AF_INET, socket.SOCK_STREAM
+            found = await asyncio.wait_for(
+                loop.getaddrinfo(
+                    "api.telegram.org",
+                    443,
+                    family=socket.AF_INET,
+                    type=socket.SOCK_STREAM,
+                ),
+                timeout=2,
             )
-        except socket.gaierror:
+        except Exception:
             return
         ips: list[str] = []
         for item in found:
@@ -65,7 +72,7 @@ class TelegramIPv4(httpcore.AsyncNetworkBackend):
         local = local_address or "0.0.0.0"
         if host != "api.telegram.org":
             return await self._inner.connect_tcp(host, port, timeout, local, socket_options)
-        self._ensure_ips()
+        await self._load_ips()
         if not self._ips:
             return await self._inner.connect_tcp(host, port, timeout, local, socket_options)
         last: Exception | None = None
@@ -153,7 +160,14 @@ class Telegram:
         if method in PROTECTED_METHODS:
             payload["protect_content"] = True
         async with self.gate:
-            return await self._post(self.send, method, request_timeout, payload)
+            try:
+                return await asyncio.wait_for(
+                    self._post(self.send, method, request_timeout, payload),
+                    timeout=15,
+                )
+            except TimeoutError:
+                log.warning("telegram %s timed out", method)
+                raise
 
     async def long_poll(self, **payload):
         return await self._post(
