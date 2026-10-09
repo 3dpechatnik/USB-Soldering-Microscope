@@ -193,6 +193,13 @@ def clock_text(screen: Screen, left: int, step: int, running: bool) -> str:
     return "\n".join(lines)
 
 
+def live_text(screen: Screen, left: int, step: int, running: bool) -> str:
+    clock = clock_text(screen, left, step, running)
+    if screen.timer_body and not screen.timer_only:
+        return f"{screen.timer_body}\n\n{clock}"
+    return clock
+
+
 def start_timer(tg: Telegram, chat_id: int, screen: Screen, message_id: int) -> None:
     cancel_timer(chat_id)
     total = int(screen.timer_after or 0)
@@ -229,7 +236,7 @@ def start_timer(tg: Telegram, chat_id: int, screen: Screen, message_id: int) -> 
         try:
             while True:
                 left = max(0, total - int(time.monotonic() - started))
-                await edit(clock_text(screen, left, step, running=left > 0))
+                await edit(live_text(screen, left, step, running=left > 0))
                 if left == 0:
                     if screen.timer_done_text:
                         await tg.call(
@@ -293,16 +300,15 @@ async def _send(tg: Telegram, chat_id: int, text: str, board: dict | None) -> di
 async def show(tg: Telegram, chat_id: int, screen: Screen) -> int | None:
     board = markup(screen)
     if screen.timer_after:
-        if not screen.timer_only and screen.timer_body:
-            for piece in _pieces(screen.timer_body):
-                await _send(tg, chat_id, piece, None)
-        sent = await _send(tg, chat_id, clock_text(screen, screen.timer_after, 0, True), board)
-        if not sent:
-            return None
-        return sent.get("message_id")
-    pieces = _pieces(screen.text)
+        text = live_text(screen, screen.timer_after, 0, True)
+    else:
+        text = screen.text
+    pieces = _pieces(text)
+    sent = None
     for index, piece in enumerate(pieces):
-        await _send(tg, chat_id, piece, board if index == len(pieces) - 1 else None)
+        sent = await _send(tg, chat_id, piece, board if index == len(pieces) - 1 else None)
+    if screen.timer_after and sent and len(pieces) == 1:
+        return sent.get("message_id")
     return None
 
 

@@ -353,26 +353,24 @@ class Service:
         else:
             self.db.update_user(user["tg_id"], screen="card")
         user = self.db.user(user["tg_id"])
-        label = await self._t(user, f"block_{card['block']}")
-        body = self._render(payload, card, index == 0, last, label)
+        body = self._render(payload, card, index == 0, last)
         actions = await self._workout_actions(user, index, last)
         clock_line = format_clock(card["seconds"], card["seconds"], running=False)
-        text = f"{clock_line}\n\n{body}"
+        text = f"{body}\n\n{clock_line}"
         extra = {}
         if self._timer_allowed(user):
             extra = {
                 "timer_after": card["seconds"],
                 "timer_done_text": await self._t(user, "timer_done"),
                 "timer_body": body,
-                "timer_label": label,
             }
         return await self._pack(user, text, actions, **extra)
 
     def _timer_allowed(self, user: dict) -> bool:
         return block_reason(self.is_admin(user["tg_id"]), 0, "timer") is None
 
-    def _render(self, payload: dict, card: dict, first: bool, last: bool, label: str) -> str:
-        lines: list[str] = [f"<b>{esc(label)}</b>", ""]
+    def _render(self, payload: dict, card: dict, first: bool, last: bool) -> str:
+        lines: list[str] = []
         if first:
             lines.extend(
                 [
@@ -682,15 +680,13 @@ class Service:
             text = esc(await self._t(user, "timer_wait"))
             return await self._pack(user, text, current.actions)
         done = await self._t(user, "timer_done")
-        label = await self._t(user, f"block_{card['block']}")
-        text = f"{format_clock(card['seconds'], card['seconds'], running=True)}\n{esc(label)}"
+        text = format_clock(card["seconds"], card["seconds"], running=True)
         return await self._pack(
             user,
             text,
             current.actions,
             timer_after=card["seconds"],
             timer_done_text=done,
-            timer_label=label,
             timer_only=True,
         )
 
