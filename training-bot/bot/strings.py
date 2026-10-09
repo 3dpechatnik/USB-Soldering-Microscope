@@ -3,9 +3,9 @@ from __future__ import annotations
 RU = {
     "who": "Кто занимается",
     "welcome": (
-        "🌙 Долгая подготовка.\n\n"
-        "Час за часом тело станет точнее и сильнее. "
-        "Спокойная школа держит дыхание и суставы. Активная растит шаг.\n\n"
+        "⚡️ Школа открыта. В зале два учителя.\n\n"
+        "Тихий ставит стопу на пол и считает дыхание. "
+        "Школа героя даёт шагу имя: Ведьмак, Тор, Чёрная Вдова, Валькирия.\n\n"
         "Если готов, выбери, кем входишь."
     ),
     "calm": "Спокойная школа",
@@ -77,9 +77,9 @@ RU = {
 EN = {
     "who": "Who is training",
     "welcome": (
-        "🌙 A long preparation.\n\n"
-        "Hour by hour the body grows sharper and stronger. "
-        "The calm school keeps the breath and the joints. The active school builds the step.\n\n"
+        "⚡️ The school is open. Two teachers share the hall.\n\n"
+        "The quiet one sets the foot on the floor and counts the breath. "
+        "The hero school gives the step a name: the Witcher, Thor, Black Widow, Valkyrie.\n\n"
         "If you are ready, choose how you enter."
     ),
     "calm": "Calm school",

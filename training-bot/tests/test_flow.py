@@ -70,7 +70,9 @@ class FlowTest(unittest.IsolatedAsyncioTestCase):
     async def test_free_path_rates_and_then_paywall_blocks_timer(self):
         screen = await self.send("/start")
         self.assertIn("gender:male", [item[0] for item in screen.actions])
+        self.assertIn("Школа открыта", screen.text)
         self.assertIn("Если готов", screen.text)
+        self.assertNotIn("Долгая подготовка", screen.text)
         self.assertTrue(screen.inline)
         screen = await self.send(RU["btn_male"])
         self.assertIn("calm:yoga", [item[0] for item in screen.actions])
