@@ -3,6 +3,7 @@ import unittest
 from bot.strings import EN, RU
 from bot.logic import (
     apply_short_calm,
+    apply_voice,
     band_for,
     block_reason,
     deck,
@@ -15,7 +16,7 @@ from bot.logic import (
     tick_delay,
     validate_session,
 )
-from bot.prompts import build_system, build_user
+from bot.prompts import build_system, build_user, build_voice
 
 
 class LogicTest(unittest.TestCase):
@@ -44,6 +45,8 @@ class LogicTest(unittest.TestCase):
         self.assertLessEqual(long[1], 5)
         night = minutes_for(300, "night")
         self.assertGreater(night[1], 5)
+        evening = minutes_for(0, "evening")
+        self.assertGreater(evening[2], evening[1])
 
     def test_scale_and_night_short(self):
         scaled = scale_split((8, 10, 17, 10), 90)
@@ -69,10 +72,14 @@ class LogicTest(unittest.TestCase):
         self.assertIn("whole session is calm", system)
         self.assertIn("calm school is yoga", system)
         self.assertIn("active school is the Witcher", system)
-        self.assertIn("Greet the person as the teacher of this joined school", system)
-        self.assertIn("One sentence, one action", system)
+        self.assertIn("teacher of the active school", system)
+        self.assertIn("one plain line", system)
         self.assertIn("a few more reps", system)
-        self.assertIn("after the cooldown only", system)
+        self.assertIn("Do not ask a question", system)
+        voice = build_voice("evening", "yoga", "witcher")
+        self.assertIn("four short lines", voice)
+        self.assertIn("Evening, not night", voice)
+        self.assertIn("Witcher instructor", voice)
         self.assertIn("Тихая засада", system)
         self.assertNotIn("This is the working session", system)
         self.assertNotIn("Black Widow", system)
@@ -100,6 +107,37 @@ class LogicTest(unittest.TestCase):
             }
         )
         self.assertEqual(session["parts"][0]["exercises"][0]["seconds"], 60)
+        voiced = validate_session(
+            {
+                "opening": "Стой. Вечер твой.",
+                "emoji": "🌆",
+                "title": "Сталь на тропе",
+                "level": "Новичок",
+                "goal": "Держи колено.",
+                "parts": [
+                    {
+                        "name": "Вход",
+                        "role": "warmup",
+                        "exercises": [
+                            {
+                                "name": "Шаг",
+                                "seconds": 10,
+                                "reps": 3,
+                                "text": "Стопы на ширине таза.\nКолени мягкие.\nВыдох длиннее.\nПятки можно приподнять.",
+                            }
+                        ],
+                    }
+                ],
+                "closing": "Опусти плечи.",
+                "ask": "Как было?",
+            }
+        )
+        spoken = apply_voice(session, voiced)
+        self.assertEqual(spoken["title"], "Сталь на тропе")
+        self.assertEqual(spoken["parts"][0]["exercises"][0]["seconds"], 60)
+        self.assertEqual(spoken["parts"][0]["exercises"][0]["name"], "Шаг")
+        self.assertIn("Стопы", spoken["parts"][0]["exercises"][0]["text"])
+        self.assertEqual(spoken["ask"], "")
 
     def test_deck_groups_three_blocks(self):
         session = validate_session(

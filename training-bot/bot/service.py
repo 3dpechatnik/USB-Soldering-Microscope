@@ -24,7 +24,7 @@ from bot.logic import (
     progress_text,
     short_calm,
 )
-from bot.prompts import build_system, build_user
+from bot.prompts import build_system, build_user, build_voice
 from bot.strings import EN, RU
 
 LABEL_ACTIONS = {
@@ -143,8 +143,9 @@ class Service:
             if action is None:
                 if user.get("expect_review") and not text.startswith("/"):
                     return await self._save_review(user, text)
-                if user["expect_note"] and not text.startswith("/"):
-                    return await self._save_note(user, text)
+                if user["expect_note"]:
+                    self.db.update_user(user["tg_id"], expect_note=0)
+                    user = self.db.user(user["tg_id"])
                 screen = await self._route(user)
                 hint = await self.i18n.t(user["language"], "use_buttons")
                 screen.text = f"{esc(hint)}\n\n{screen.text}"
@@ -394,8 +395,6 @@ class Service:
             lines.append("")
         if last:
             lines.append(esc(payload["closing"]))
-            lines.append("")
-            lines.append(esc(payload["ask"]))
         return "\n".join(lines).strip()
 
     async def _workout_actions(self, user: dict, index: int, last: bool) -> list[tuple[str, str]]:
@@ -623,6 +622,7 @@ class Service:
             choice["active"],
             short_calm(hours, time_of_day),
         )
+        voice = build_voice(time_of_day, choice["calm"], choice["active"])
         if self._on_wait:
             await self._on_wait(await self._t(user, "gathering"))
         request = build_user(
@@ -638,7 +638,7 @@ class Service:
         )
         try:
             async with self._ai_slots:
-                payload = await self.ai.session(system, request)
+                payload = await self.ai.session(system, request, voice)
         except Exception:
             log.exception("workout generation failed")
             fail = esc(await self._t(user, "fail"))
@@ -698,48 +698,25 @@ class Service:
         session = self.db.active_session(user["tg_id"])
         if session is None or user["screen"] != "rating":
             return await self._route(user)
-        payload, cards, index = self._position(session)
+        _payload, cards, index = self._position(session)
         if index != len(cards) - 1:
             return await self._card(user, session)
         self.db.finish_session(session["id"], score)
         self.db.add_hour(session["choice_id"])
         hours = self.db.total_hours(user["tg_id"])
         self.db.set_feedback(session["choice_id"], score)
-        self.db.update_user(user["tg_id"], screen="done", expect_note=1)
+        self.db.update_user(user["tg_id"], screen="done", expect_note=0)
         user = self.db.user(user["tg_id"])
-        choice = self.db.active_choice(user["tg_id"])
-        calm = await self._t(user, f"btn_{choice['calm']}")
-        active = await self._t(user, f"btn_{choice['active']}")
-        admin = (
-            f"Отзыв\n{self._who(user)}\nоценка: {score}\n"
-            f"школы: {calm} / {active}\nзанятие: {payload['title']}\nсчёт: {hours}"
-        )
         template = await self._t(user, "progress")
         text = (
             f"{await self._heading(user, 'hour_saved')}\n\n"
-            f"{esc(progress_text(template, hours))}\n\n"
-            f"{esc(await self._t(user, 'note_invite'))}"
+            f"{esc(progress_text(template, hours))}"
         )
         actions = [
             ("go:train", await self._t(user, "btn_train")),
             ("go:menu", await self._t(user, "btn_menu")),
         ]
-        return await self._pack(user, text, actions, admin_text=admin)
-
-    async def _save_note(self, user: dict, text: str) -> Screen:
-        choice = self.db.active_choice(user["tg_id"])
-        clean = text.strip()[:1000]
-        if choice and clean:
-            self.db.set_feedback(choice["id"], choice["last_score"] or 0, clean)
-            self.db.set_latest_note(user["tg_id"], clean)
-        self.db.update_user(user["tg_id"], expect_note=0)
-        user = self.db.user(user["tg_id"])
-        admin = f"Уточнение к отзыву\n{self._who(user)}\n{clean}"
-        accepted = esc(await self._t(user, "accepted"))
-        home = await self._home(user)
-        home.text = f"{accepted}\n\n{home.text}"
-        home.admin_text = admin
-        return home
+        return await self._pack(user, text, actions)
 
     def _who(self, user: dict) -> str:
         handle = f"@{user['username']}" if user["username"] else "без имени"

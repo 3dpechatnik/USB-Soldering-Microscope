@@ -3,7 +3,7 @@ from __future__ import annotations
 SPLITS_45 = {
     "morning": (8, 13, 14, 10),
     "day": (8, 10, 17, 10),
-    "evening": (8, 14, 11, 12),
+    "evening": (7, 8, 20, 10),
     "night": (8, 14, 13, 10),
     "outdoor": (8, 10, 17, 10),
 }
@@ -187,6 +187,52 @@ def validate_session(data: dict) -> dict:
     if not deck(data):
         raise ValueError("empty deck")
     return data
+
+
+def apply_voice(plan: dict, voiced: dict) -> dict:
+    """Keep the planned doses and let the teacher rewrite the words."""
+    plan_parts = {part["role"]: part for part in plan["parts"]}
+    voice_parts = {part["role"]: part for part in voiced["parts"]}
+    if set(plan_parts) != set(voice_parts):
+        return plan
+    parts = []
+    for role in ("warmup", "calm", "active", "cooldown"):
+        if role not in plan_parts:
+            continue
+        base = plan_parts[role]
+        spoken = voice_parts[role]
+        if len(base["exercises"]) != len(spoken["exercises"]):
+            return plan
+        exercises = []
+        for src, dst in zip(base["exercises"], spoken["exercises"]):
+            name = str(dst.get("name") or "").strip() or src["name"]
+            text = str(dst.get("text") or "").strip() or src["text"]
+            exercises.append(
+                {
+                    "name": name,
+                    "seconds": src["seconds"],
+                    "reps": src["reps"],
+                    "text": text,
+                }
+            )
+        parts.append(
+            {
+                "name": str(spoken.get("name") or "").strip() or base["name"],
+                "role": role,
+                "exercises": exercises,
+            }
+        )
+    merged = {
+        "opening": voiced["opening"] or plan["opening"],
+        "emoji": voiced["emoji"] or plan["emoji"],
+        "title": voiced["title"] or plan["title"],
+        "level": voiced["level"] or plan["level"],
+        "goal": voiced["goal"] or plan["goal"],
+        "parts": parts,
+        "closing": voiced["closing"] or plan["closing"],
+        "ask": "",
+    }
+    return validate_session(merged)
 
 
 def deck(session: dict) -> list[dict]:

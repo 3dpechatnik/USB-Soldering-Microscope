@@ -378,7 +378,7 @@ async def main() -> None:
                     text,
                     on_wait=on_wait,
                 ),
-                timeout=100,
+                timeout=150,
             )
         except TimeoutError:
             log.warning("update timed out")

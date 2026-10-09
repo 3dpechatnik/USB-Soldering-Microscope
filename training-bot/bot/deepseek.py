@@ -4,7 +4,7 @@ import logging
 
 import httpx
 
-from bot.logic import parse_model_json, validate_session
+from bot.logic import apply_voice, parse_model_json, validate_session
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class DeepSeek:
         body = response.json()
         return body["choices"][0]["message"]["content"]
 
-    async def session(self, system: str, user: str) -> dict:
+    async def _cards(self, system: str, user: str) -> dict:
         raw = await self.complete(system, user, temperature=0.8, max_tokens=8000)
         try:
             return validate_session(parse_model_json(raw))
@@ -56,6 +56,27 @@ class DeepSeek:
                 max_tokens=8000,
             )
             return validate_session(parse_model_json(raw))
+
+    async def session(self, system: str, user: str, voice: str | None = None) -> dict:
+        import json
+
+        plan = await self._cards(system, user)
+        if not voice:
+            return plan
+        spoken = (
+            user
+            + "\n\ncards:\n"
+            + json.dumps(plan, ensure_ascii=False)
+            + "\n\nDescribe these cards in the teacher's voice. "
+            "Keep the same roles and the same number of exercises."
+        )
+        try:
+            raw = await self.complete(voice, spoken, temperature=0.8, max_tokens=8000)
+            voiced = validate_session(parse_model_json(raw))
+            return apply_voice(plan, voiced)
+        except Exception:
+            log.warning("voice pass failed, keeping the cards")
+            return plan
 
     async def translate(self, language_name: str, mapping: dict[str, str]) -> dict[str, str]:
         import json

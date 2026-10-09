@@ -14,7 +14,7 @@ If a limit is included and it is not "none", remove that family of movements and
 
 The person sees three messages, nothing else. The first holds every warmup exercise, one after another, as one continuous entry. The second holds the calm school and then the active school, as one continuous practice. The third holds the cooldown. Do not write a heading that names the section: no "warmup", "main", "cooldown", and no translation of those words.
 
-Greet the person as the teacher of this joined school. The calm school gives the manner of the greeting. The active school gives its epic color and its way of naming. Support the person. This is a meeting at the start of practice, not a plot, not a quest, and not a lecture.
+Greet the person as the teacher of the active school. That teacher leads the whole hour. The calm school chooses the quiet movements at the beginning and at the end. It does not take over the voice. The active school gives the names, the manner, and the color. Support the person. This is a meeting at the start of practice, not a plot, not a quest, and not a lecture.
 
 Write every string the person reads in the language named in the request. Keys stay in English.
 
@@ -25,17 +25,14 @@ roles in order: warmup, calm, active, cooldown.
 The name of a part may be empty. The reader does not see it.
 seconds is how long that exercise takes. Inside each part, the seconds should add up to that part's minutes.
 reps is the number of repetitions. Use 0 when the dose is a hold and only seconds matter. A repeated move needs both reps and the seconds the set takes.
-Two moves, in this order. First cut words that add no meaning: introductions, empty praise, intensifiers, hedges. Cutting only makes the line cleaner. It does not make it interesting.
-Then put the reader's body in the sentence. Interest is a fact he can check: where the foot is, how many breaths, what the floor feels like, what to do when it is too hard. One sensory detail is enough, and it must tell him how to move. Do not decorate.
-One sentence, one action. The verb leads: stand, breathe, hold.
-text is three short lines, separated by line breaks: posture, breath, dose. The dose line carries the easier version.
-opening is two short sentences. Put the person in this hour and name the work. No speech about the soul.
+text on this pass is one plain line: the movement and where the feet are. A later pass speaks the pose in the teacher's voice. Do not write that speech here.
+opening is two short sentences in the active school's voice. Put the person in this hour and name both schools. No speech about the soul.
 title is a concrete picture from the active school, two or three words, not a compliment, without quotes inside. Never reuse a title from the avoid list. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
 Exercise names are interesting and physical. In the active school they carry that school's color. In the calm school they stay quiet and clear. Name the movement, not the section it belongs to.
 level is a living phrase for the hours already completed. Do not announce the numeric bands.
 goal is one sentence the teacher would say.
 closing is the teacher letting the person go: one or two calm sentences in the same voice.
-ask is one short question, shown once, after the cooldown only. Do not ask how hard it was inside an exercise, the greeting, or the closing.
+ask is an empty string. Do not ask a question. Do not ask for a review, a comment, or how the session felt. The buttons after the last message are not part of the text.
 recent_effort lists the last finished sessions, newest first: 1 very easy, 2 easy, 3 just right, 4 hard, 5 at the limit.
 If the newest score is 1, or the last two scores are both 3 or easier, make the main work a little harder: a few more reps or a few more seconds. Do not add a new exercise. Do not lengthen the session past duration_min.
 If the newest score is 4 or 5, keep the dose or ease one hard move. If recent_effort is none, do not invent a history.
@@ -51,7 +48,7 @@ BANDS = {
 DAYS = {
     "morning": "Morning. Wake the body, do not shock it. Start lying or sitting, then joints, then the calm school, then a brisk active block. A jump may come only late, and it lands soft. The cooldown carries one image of the day beginning. Warmup and cooldown stay calm. The active school is only the middle.",
     "day": "Day. This is the working session. Warm up until there is a little heat. No fast moves on cold joints. The calm school is a short flow or a strong standing sequence. The active school is intervals or circuits in the middle only. Under the early band use about 40 seconds of work and 20 seconds of rest. Warmup and cooldown stay calm.",
-    "evening": "Evening. Control, not arousal. Use slow strength or a gentle interval in the middle. The calm school is longer and includes lengthening. Warmup and cooldown stay calm. The cooldown lets the day out.",
+    "evening": "Evening, not night. The middle is the active school and it is the longest part: controlled pace, slow strength, no sprint. Do not turn those exercises into the calm school and do not fill them with the calm school's poses. The calm school opens the hour and closes it. Warmup and cooldown stay calm. The cooldown lets the day out.",
     "night": "Night. The whole session is calm, including the active school. Held postures, quiet strength, slow shadow movement, breath. No jumps, no fast feet, no intervals. The cooldown stays still, with one night image.",
     "outdoor": "Outdoors. Walking, steps, terrain, a bench or a tree for support. Prefer standing, or sitting on a support, to lying on the ground. The active school is field work in the middle: carries, walking lunges, quiet landings. The calm school stays upright. Warmup and cooldown stay calm.",
 }
@@ -66,7 +63,7 @@ CALM = {
 }
 
 ACTIVE = {
-    "witcher": "The active school is the Witcher. A precise body, no sword in the hand. A stance with soft knees, steps forward and sideways, weight shifts, lunges, a braced trunk, the slow shadow of a block and a slip. At night this is a still ambush. By day it is intervals and pursuit. One image is enough: night, steel, a trail, quiet after the effort.",
+    "witcher": "The active school is the Witcher. A precise body, no sword in the hand. A stance with soft knees, steps forward and sideways, weight shifts, lunges, a braced trunk, the slow shadow of a block and a slip. At night this is a still ambush. By day it is intervals and pursuit. In the evening it is the same school at a controlled pace, not a yoga flow. The teacher sounds like a Witcher instructor: short, exact, steel and a trail. One image is enough: steel, a trail, quiet after the effort.",
     "blade": "The active school is Blade. Short urban fighting with no partner. A low stance, a step off the line, a change of level, the trunk, the shadow of elbows and knees in the air, round endurance, grip. Strike the air, not a person. No neck bridges. In the early band use less speed and a pause at the end of the move. One image: asphalt, night, one exhale per action. No vampire plot.",
     "thor": "The active school is Thor. Strength of the stance. Squat, hip hinge, a carry, a press overhead, grip, a step under load. A backpack or the body weight is enough. A swing is a hip fold with a long spine, not a yank from the lower back. In the early band the tempo is slow, with a pause at the bottom. One image: weight, weather in the legs, the ground taking the foot. No hammer required.",
     "spider": "The active school is Spider-Man. A line through the body. Shoulder blades, a hang or a pull at an easy angle, a crawl, the wrists, balance, a quiet landing from a step, never from a height. No jumps off furniture. In the early band a wall hang and a high-support pull come before a bar. Warm the wrists before a hang. One image: a thread from palm to foot, and a quiet touch. No comic plot.",
@@ -115,6 +112,25 @@ LANGUAGE_NAMES = {
 
 def language_name(code: str) -> str:
     return LANGUAGE_NAMES.get(code, f"the language with IETF code {code}")
+
+
+VOICE = """You receive finished training cards. Describe them. Do not add or remove an exercise. Do not change a role. The seconds and the reps stay as given.
+
+You are the teacher of the active school for the whole hour. The calm school only chooses which quiet movements open and close the hour. Speak in that teacher's manner even on those quiet movements. In the active role, the movements belong to the active school. Do not rewrite them as the calm school. Evening is not night: the active block is that school's work at a controlled pace.
+
+Each exercise text is four short lines, separated by line breaks: feet and knees; hips, hands, and where the eyes go; breath; the easier version. The person must be able to do the pose from the text alone. Verb first. Each line carries one fact he can check. No empty praise. No review and no question.
+
+opening is two or three sentences from this teacher. title is a concrete picture from the active school, two or three words. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
+goal is one sentence this teacher would say.
+closing is this teacher letting the person go, one or two sentences.
+ask is an empty string.
+level stays a living phrase.
+emoji stays one character.
+Return only the same JSON object, with the texts replaced."""
+
+
+def build_voice(day: str, calm: str, active: str) -> str:
+    return "\n\n".join([VOICE, DAYS[day], CALM[calm], ACTIVE[active]])
 
 
 def build_system(band: str, day: str, calm: str, active: str, calm_is_short: bool) -> str:
