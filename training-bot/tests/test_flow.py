@@ -200,6 +200,24 @@ class FlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.db.active_choice(5))
         self.assertEqual(self.db.total_hours(5), 0)
 
+    async def test_repeat_active_school_opens_the_hour(self):
+        await self.send("/start", 906994986)
+        await self.send(RU["btn_male"], 906994986)
+        await self.send(RU["btn_yoga"], 906994986)
+        screen = await self.send(RU["btn_witcher"], 906994986)
+        self.assertIn("time:evening", [item[0] for item in screen.actions])
+        self.assertEqual(self.ai.calls, 0)
+        screen = await self.send(RU["btn_witcher"], 906994986)
+        self.assertIn("Выбери час", screen.text)
+        self.assertIn("time:evening", [item[0] for item in screen.actions])
+        self.assertEqual(self.ai.calls, 0)
+        self.assertEqual(self.db.active_choice(906994986)["active"], "witcher")
+        screen = await self.send(RU["btn_thor"], 906994986)
+        self.assertIn("time:morning", [item[0] for item in screen.actions])
+        self.assertEqual(self.db.active_choice(906994986)["calm"], "yoga")
+        self.assertEqual(self.db.active_choice(906994986)["active"], "thor")
+        self.assertEqual(self.db.archived_choices(906994986)[0]["active"], "witcher")
+
 
 if __name__ == "__main__":
     unittest.main()

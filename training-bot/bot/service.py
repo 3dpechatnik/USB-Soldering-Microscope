@@ -480,12 +480,23 @@ class Service:
         if action.startswith("active:"):
             active = action.split(":", 1)[1]
             allowed = ACTIVE_IDS.get(user["gender"], ())
-            if active not in allowed or not user["pending_calm"]:
+            if active not in allowed:
                 return await self._active(user)
-            if user["reselect"]:
+            choice = self.db.active_choice(user["tg_id"])
+            calm = user["pending_calm"]
+            if not calm:
+                # The pair was saved, but the hour screen never arrived.
+                if choice is None:
+                    return await self._calm(user)
+                if choice["active"] == active:
+                    self.db.update_user(user["tg_id"], awaiting_first_time=1)
+                    return await self._time(self.db.user(user["tg_id"]))
+                calm = choice["calm"]
+                self.db.archive_active(user["tg_id"])
+            elif user["reselect"] and choice:
                 self.db.abandon_active(user["tg_id"])
                 self.db.archive_active(user["tg_id"])
-            self.db.create_choice(user["tg_id"], user["pending_calm"], active)
+            self.db.create_choice(user["tg_id"], calm, active)
             self.db.update_user(
                 user["tg_id"],
                 pending_calm=None,

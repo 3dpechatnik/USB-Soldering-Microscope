@@ -172,6 +172,20 @@ class TelegramIPv4(httpcore.AsyncNetworkBackend):
         return await self._inner.connect_tcp(host, port, timeout, local_address, socket_options)
 
     async def _connect_bound_ipv6(self, ip, port, timeout, local, socket_options):
+        # One SYN sometimes dies on this route. A fresh socket usually connects.
+        limits = [timeout]
+        if timeout is None or float(timeout) > 2.5:
+            limits = [2.5, timeout]
+        last: Exception | None = None
+        for limit in limits:
+            try:
+                return await self._open_bound_ipv6(ip, port, limit, local, socket_options)
+            except Exception as exc:
+                last = exc
+        assert last is not None
+        raise last
+
+    async def _open_bound_ipv6(self, ip, port, timeout, local, socket_options):
         loop = asyncio.get_running_loop()
         sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         try:
