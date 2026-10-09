@@ -174,7 +174,7 @@ def markup(screen: Screen) -> dict:
     return {
         "keyboard": [[{"text": label}] for _, label in screen.actions],
         "resize_keyboard": False,
-        "is_persistent": True,
+        "is_persistent": False,
     }
 
 

@@ -216,6 +216,14 @@ class LogicTest(unittest.TestCase):
         self.assertNotIn("recent_effort", text)
         self.assertNotIn("1 to 5", text)
 
+    def test_bottom_keyboard_can_be_folded(self):
+        from bot.service import Screen
+        from bot.telegram_app import markup
+
+        board = markup(Screen(text="x", actions=[("go:train", "Тренировка")]))
+        self.assertFalse(board["is_persistent"])
+        self.assertIn("keyboard", board)
+
     def test_clock_counts_real_time(self):
         shown = format_clock(90, 120, step=1, running=True)
         self.assertIn("1:30", shown)
