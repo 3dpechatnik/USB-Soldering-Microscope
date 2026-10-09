@@ -29,6 +29,12 @@ class Telegram:
 
 
 def markup(screen: Screen) -> dict:
+    if screen.inline:
+        return {
+            "inline_keyboard": [
+                [{"text": label, "callback_data": action}] for action, label in screen.actions
+            ]
+        }
     return {
         "keyboard": [[{"text": label}] for _, label in screen.actions],
         "resize_keyboard": False,
@@ -157,6 +163,23 @@ async def main() -> None:
         if screen.timer_after:
             start_timer(tg, chat_id, screen)
 
+    async def on_callback(callback: dict) -> None:
+        try:
+            await tg.call("answerCallbackQuery", callback_query_id=callback["id"])
+        except Exception:
+            log.warning("callback answer failed")
+        message = callback.get("message") or {}
+        chat = message.get("chat") or {}
+        if chat.get("type") != "private":
+            return
+        await on_message(
+            {
+                "chat": chat,
+                "from": callback.get("from") or {},
+                "text": callback.get("data") or "",
+            }
+        )
+
     offset = 0
     try:
         for attempt in range(5):
@@ -183,7 +206,7 @@ async def main() -> None:
                     "getUpdates",
                     offset=offset,
                     timeout=8,
-                    allowed_updates=["message"],
+                    allowed_updates=["message", "callback_query"],
                 )
             except Exception as exc:
                 log.warning("poll failed: %s %r", type(exc).__name__, exc)
@@ -191,11 +214,11 @@ async def main() -> None:
                 continue
             for update in updates or []:
                 offset = update["update_id"] + 1
-                message = update.get("message")
-                if not message:
-                    continue
                 try:
-                    await on_message(message)
+                    if update.get("message"):
+                        await on_message(update["message"])
+                    elif update.get("callback_query"):
+                        await on_callback(update["callback_query"])
                 except Exception:
                     log.exception("message failed")
     finally:

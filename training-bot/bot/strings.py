@@ -5,6 +5,15 @@ SEP = "-__________________________/"
 RU = {
     "sep": SEP,
     "who": "Кто занимается",
+    "welcome": (
+        "-__________________________/\n\n"
+        "Ты стоишь у порога долгой подготовки.\n\n"
+        "Это не игра и не короткая зарядка. Час за часом тело станет тише, точнее и сильнее. "
+        "Спокойная школа будет беречь суставы и дыхание. Активная вырастит силу, шаг и выдержку. "
+        "Шкала длинная: до её конца доходят годами, не за один сезон.\n\n"
+        "Если готов, выбери, кем входишь.\n\n"
+        "-__________________________/"
+    ),
     "calm": "Спокойная школа",
     "active": "Активная школа",
     "where": "Куда идём",
@@ -67,6 +76,15 @@ RU = {
 EN = {
     "sep": SEP,
     "who": "Who is training",
+    "welcome": (
+        "-__________________________/\n\n"
+        "You stand at the threshold of a long preparation.\n\n"
+        "This is not a game and not a short workout. Hour by hour the body grows quieter, sharper, and stronger. "
+        "The calm school keeps the joints and the breath. The active school builds strength, step, and stamina. "
+        "The scale is long: its end takes years, not a season.\n\n"
+        "If you are ready, choose how you enter.\n\n"
+        "-__________________________/"
+    ),
     "calm": "Calm school",
     "active": "Active school",
     "where": "Where we go",

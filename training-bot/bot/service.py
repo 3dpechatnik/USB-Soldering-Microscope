@@ -75,6 +75,7 @@ class Screen:
     admin_text: str | None = None
     timer_after: int | None = None
     timer_done_text: str | None = None
+    inline: bool = False
 
 
 class Service:
@@ -108,10 +109,23 @@ class Service:
             self._on_wait = on_wait
             user = self.db.upsert_user(tg_id, username or "", full_name or "", language)
             if text.startswith("/start"):
+                if self.db.active_choice(tg_id) is None:
+                    self.db.update_user(
+                        tg_id,
+                        gender=None,
+                        pending_calm=None,
+                        reselect=0,
+                        screen="gender",
+                    )
+                    user = self.db.user(tg_id)
                 return await self._route(user)
             if text.startswith("/menu") and self.db.active_choice(tg_id):
                 return await self._open_menu(user)
             action = self._match(user, text)
+            if action is None and text.startswith(
+                ("gender:", "calm:", "active:", "time:", "go:", "nav:", "rate:")
+            ):
+                action = text
             if action is None:
                 if user["expect_note"] and not text.startswith("/"):
                     return await self._save_note(user, text)
@@ -143,9 +157,16 @@ class Service:
         title = await self._t(user, title_key)
         return f"{sep}\n{esc(title)}\n{sep}"
 
-    async def _pack(self, user: dict, text: str, actions: list[tuple[str, str]], **extra) -> Screen:
+    async def _pack(
+        self,
+        user: dict,
+        text: str,
+        actions: list[tuple[str, str]],
+        inline: bool = False,
+        **extra,
+    ) -> Screen:
         self.db.set_keyboard(user["tg_id"], actions)
-        return Screen(text=text, actions=actions, **extra)
+        return Screen(text=text, actions=actions, inline=inline, **extra)
 
     async def _route(self, user: dict) -> Screen:
         choice = self.db.active_choice(user["tg_id"])
@@ -176,7 +197,8 @@ class Service:
             ("gender:male", await self._t(user, "btn_male")),
             ("gender:female", await self._t(user, "btn_female")),
         ]
-        return await self._pack(user, await self._heading(user, "who"), actions)
+        text = esc(await self._t(user, "welcome"))
+        return await self._pack(user, text, actions, inline=True)
 
     async def _calm(self, user: dict) -> Screen:
         self.db.update_user(user["tg_id"], screen="calm")
