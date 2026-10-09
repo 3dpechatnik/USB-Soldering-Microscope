@@ -105,6 +105,31 @@ def open_client(backend: TelegramIPv4, connections: int, timeout: httpx.Timeout)
     return httpx.AsyncClient(timeout=timeout, transport=transport, limits=limits)
 
 
+PROTECTED_METHODS = frozenset(
+    {
+        "sendMessage",
+        "sendPhoto",
+        "sendAudio",
+        "sendDocument",
+        "sendVideo",
+        "sendAnimation",
+        "sendVoice",
+        "sendVideoNote",
+        "sendSticker",
+        "sendMediaGroup",
+        "copyMessage",
+        "sendPoll",
+        "sendDice",
+        "sendLocation",
+        "sendVenue",
+        "sendContact",
+        "sendInvoice",
+        "sendGame",
+        "sendPaidMedia",
+    }
+)
+
+
 class Telegram:
     def __init__(self, token: str, send: httpx.AsyncClient, poll: httpx.AsyncClient):
         self.url = f"https://api.telegram.org/bot{token}"
@@ -124,6 +149,8 @@ class Telegram:
         return data.get("result")
 
     async def call(self, method: str, request_timeout: httpx.Timeout | None = None, **payload):
+        if method in PROTECTED_METHODS:
+            payload["protect_content"] = True
         async with self.gate:
             return await self._post(self.send, method, request_timeout, payload)
 

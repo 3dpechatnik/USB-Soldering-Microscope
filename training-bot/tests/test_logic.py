@@ -143,6 +143,30 @@ class LogicTest(unittest.TestCase):
         self.assertEqual(tick_delay(30), 1)
 
 
+class ProtectContentTest(unittest.IsolatedAsyncioTestCase):
+    async def test_outgoing_message_cannot_be_forwarded(self):
+        from bot.telegram_app import Telegram
+
+        seen = {}
+
+        class FakeClient:
+            async def post(self, url, json):
+                seen["json"] = json
+
+                class Response:
+                    def json(self):
+                        return {"ok": True, "result": {"message_id": 1}}
+
+                return Response()
+
+        telegram = Telegram("token", FakeClient(), FakeClient())
+        await telegram.call("sendMessage", chat_id=1, text="занятие")
+        self.assertTrue(seen["json"]["protect_content"])
+        seen.clear()
+        await telegram.call("sendChatAction", chat_id=1, action="typing")
+        self.assertNotIn("protect_content", seen["json"])
+
+
 class AddressRotationTest(unittest.IsolatedAsyncioTestCase):
     async def test_failed_address_is_skipped(self):
         from bot.telegram_app import TelegramIPv4
