@@ -66,11 +66,6 @@ RU = {
     "btn_schools": "✨  Школы",
     "btn_exp": "📈  Опыт",
     "btn_change": "🔄  Сменить",
-    "btn_r1": "1  Очень легко",
-    "btn_r2": "2  Легко",
-    "btn_r3": "3  В самый раз",
-    "btn_r4": "4  Тяжело",
-    "btn_r5": "5  На пределе",
     "progress": "Прогресс: [{n}/10000] — {pct}",
 }
 
@@ -140,10 +135,5 @@ EN = {
     "btn_schools": "✨  Schools",
     "btn_exp": "📈  Experience",
     "btn_change": "🔄  Change",
-    "btn_r1": "1  Very easy",
-    "btn_r2": "2  Easy",
-    "btn_r3": "3  Just right",
-    "btn_r4": "4  Hard",
-    "btn_r5": "5  At the limit",
     "progress": "Progress: [{n}/10000] — {pct}",
 }

@@ -200,6 +200,13 @@ class DB:
             )
         self.conn.commit()
 
+    def latest_session(self, tg_id: int) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM sessions WHERE tg_id=? ORDER BY id DESC LIMIT 1",
+            (tg_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
     def active_session(self, tg_id: int) -> dict | None:
         row = self.conn.execute(
             """

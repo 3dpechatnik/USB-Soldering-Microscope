@@ -74,8 +74,8 @@ class LogicTest(unittest.TestCase):
         self.assertIn("active school is the Witcher", system)
         self.assertIn("teacher of the active school", system)
         self.assertIn("one plain line", system)
-        self.assertIn("a few more reps", system)
         self.assertIn("Do not ask a question", system)
+        self.assertIn("score from 1 to 5", system)
         voice = build_voice("evening", "yoga", "witcher")
         self.assertIn("four short lines", voice)
         self.assertIn("Evening, not night", voice)
@@ -204,21 +204,9 @@ class LogicTest(unittest.TestCase):
         self.assertEqual(session["parts"][0]["exercises"][0]["reps"], 8)
 
     def test_recent_effort_reaches_the_master(self):
-        text = build_user(
-            "ru",
-            2,
-            45,
-            (8, 13, 14, 10),
-            "morning",
-            [],
-            [],
-            "",
-            [
-                {"score": 1, "title": "Тихий шаг", "note": ""},
-                {"score": 3, "title": "Ровная работа", "note": "колено"},
-            ],
-        )
-        self.assertIn("recent_effort: 1 (Тихий шаг); 3 (Ровная работа) — колено", text)
+        text = build_user("ru", 2, 45, (8, 13, 14, 10), "morning", [], [], "")
+        self.assertNotIn("recent_effort", text)
+        self.assertNotIn("1 to 5", text)
 
     def test_clock_counts_real_time(self):
         shown = format_clock(90, 120, step=1, running=True)

@@ -55,11 +55,6 @@ LABEL_ACTIONS = {
     "btn_schools": "go:schools",
     "btn_exp": "go:exp",
     "btn_change": "go:change",
-    "btn_r1": "rate:1",
-    "btn_r2": "rate:2",
-    "btn_r3": "rate:3",
-    "btn_r4": "rate:4",
-    "btn_r5": "rate:5",
     "btn_delete_yes": "delete:yes",
     "btn_delete_no": "delete:no",
 }
@@ -349,13 +344,18 @@ class Service:
         payload, cards, index = self._position(session)
         card = cards[index]
         last = index == len(cards) - 1
-        if last:
-            self.db.update_user(user["tg_id"], screen="rating")
-        else:
-            self.db.update_user(user["tg_id"], screen="card")
+        if last and session.get("status") == "active":
+            self.db.finish_session(session["id"])
+            self.db.add_hour(session["choice_id"])
+            session["status"] = "finished"
+        self.db.update_user(user["tg_id"], screen="card")
         user = self.db.user(user["tg_id"])
         reps_line = await self._t(user, "reps_line")
         body = self._render(payload, card, index == 0, last, reps_line)
+        if last:
+            hours = self.db.total_hours(user["tg_id"])
+            template = await self._t(user, "progress")
+            body = f"{body}\n\n{esc(progress_text(template, hours))}"
         actions = await self._workout_actions(user, index, last)
         clock_line = format_clock(card["seconds"], card["seconds"], running=False)
         text = f"{body}\n\n{clock_line}"
@@ -403,9 +403,6 @@ class Service:
             actions.append(("nav:prev", await self._t(user, "btn_back")))
         if not last:
             actions.append(("nav:next", await self._t(user, "btn_next")))
-        else:
-            for score in range(1, 6):
-                actions.append((f"rate:{score}", await self._t(user, f"btn_r{score}")))
         actions.append(("nav:timer", await self._t(user, "btn_timer")))
         actions.append(("go:menu", await self._t(user, "btn_menu")))
         return actions
@@ -577,8 +574,10 @@ class Service:
             return await self._timer(user)
 
         if action.startswith("rate:"):
-            score = int(action.split(":", 1)[1])
-            return await self._rate(user, score)
+            session = self._viewing(user)
+            if session:
+                return await self._card(user, session)
+            return await self._route(user)
 
         return await self._route(user)
 
@@ -614,7 +613,6 @@ class Service:
         for item in finished:
             names.extend(exercise_names(item["payload"]))
         note = (choice["last_note"] or "").strip()
-        efforts = self.db.recent_efforts(user["tg_id"], 2)
         system = build_system(
             band_for(hours),
             time_of_day,
@@ -634,7 +632,6 @@ class Service:
             titles,
             names[:40],
             note,
-            efforts,
         )
         try:
             async with self._ai_slots:
@@ -653,8 +650,16 @@ class Service:
         )
         return await self._card(self.db.user(user["tg_id"]), session)
 
-    async def _move(self, user: dict, action: str) -> Screen:
+    def _viewing(self, user: dict) -> dict | None:
         session = self.db.active_session(user["tg_id"])
+        if session:
+            return session
+        if user["screen"] in {"card", "rating"}:
+            return self.db.latest_session(user["tg_id"])
+        return None
+
+    async def _move(self, user: dict, action: str) -> Screen:
+        session = self._viewing(user)
         if session is None:
             return await self._home(user)
         _payload, cards, index = self._position(session)
@@ -667,7 +672,7 @@ class Service:
         return await self._card(user, session)
 
     async def _timer(self, user: dict) -> Screen:
-        session = self.db.active_session(user["tg_id"])
+        session = self._viewing(user)
         current = await self._card(user, session) if session else await self._home(user)
         reason = block_reason(self.is_admin(user["tg_id"]), 0, "timer")
         if reason:
@@ -691,32 +696,6 @@ class Service:
             timer_done_text=done,
             timer_only=True,
         )
-
-    async def _rate(self, user: dict, score: int) -> Screen:
-        if score < 1 or score > 5:
-            return await self._route(user)
-        session = self.db.active_session(user["tg_id"])
-        if session is None or user["screen"] != "rating":
-            return await self._route(user)
-        _payload, cards, index = self._position(session)
-        if index != len(cards) - 1:
-            return await self._card(user, session)
-        self.db.finish_session(session["id"], score)
-        self.db.add_hour(session["choice_id"])
-        hours = self.db.total_hours(user["tg_id"])
-        self.db.set_feedback(session["choice_id"], score)
-        self.db.update_user(user["tg_id"], screen="done", expect_note=0)
-        user = self.db.user(user["tg_id"])
-        template = await self._t(user, "progress")
-        text = (
-            f"{await self._heading(user, 'hour_saved')}\n\n"
-            f"{esc(progress_text(template, hours))}"
-        )
-        actions = [
-            ("go:train", await self._t(user, "btn_train")),
-            ("go:menu", await self._t(user, "btn_menu")),
-        ]
-        return await self._pack(user, text, actions)
 
     def _who(self, user: dict) -> str:
         handle = f"@{user['username']}" if user["username"] else "без имени"
