@@ -24,9 +24,12 @@ Return only a JSON object, with no markdown fence:
 roles in order: warmup, calm, active, cooldown.
 The name of a part may be empty. The reader does not see it.
 seconds is how long that exercise takes. Inside each part, the seconds should add up to that part's minutes.
-text tells posture, breath, and dose, in the teacher's voice. A hard exercise carries its easier version in the same text. At most one short image. One short line of support is enough.
-opening is the teacher's greeting: two or three sentences for this hour. It welcomes the person and supports them.
-title is a fresh name in the voice of the active school: concrete, memorable, a little epic, without quotes inside. Never reuse a title from the avoid list. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
+Two moves, in this order. First cut words that add no meaning: introductions, empty praise, intensifiers, hedges. Cutting only makes the line cleaner. It does not make it interesting.
+Then put the reader's body in the sentence. Interest is a fact he can check: where the foot is, how many breaths, what the floor feels like, what to do when it is too hard. One sensory detail is enough, and it must tell him how to move. Do not decorate.
+One sentence, one action. The verb leads: stand, breathe, hold.
+text is three short lines, separated by line breaks: posture, breath, dose. The dose line carries the easier version.
+opening is two short sentences. Put the person in this hour and name the work. No speech about the soul.
+title is a concrete picture from the active school, two or three words, not a compliment, without quotes inside. Never reuse a title from the avoid list. Never use these stock titles: Тихая засада, Острие копья, Стальной рассвет, Первый свет.
 Exercise names are interesting and physical. In the active school they carry that school's color. In the calm school they stay quiet and clear. Name the movement, not the section it belongs to.
 level is a living phrase for the hours already completed. Do not announce the numeric bands.
 goal is one sentence the teacher would say.

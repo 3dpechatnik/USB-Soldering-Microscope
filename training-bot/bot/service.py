@@ -385,7 +385,8 @@ class Service:
                 ]
             )
         for exercise in card["exercises"]:
-            lines.append(f"<b>{esc(exercise['name'])}</b>  {esc(clock(exercise['seconds']))}")
+            lines.append(f"<b>{esc(exercise['name'])}</b>")
+            lines.append(esc(clock(exercise["seconds"])))
             lines.append(esc(exercise["text"]))
             lines.append("")
         if last:

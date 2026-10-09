@@ -69,6 +69,7 @@ class LogicTest(unittest.TestCase):
         self.assertIn("calm school is yoga", system)
         self.assertIn("active school is the Witcher", system)
         self.assertIn("Greet the person as the teacher of this joined school", system)
+        self.assertIn("One sentence, one action", system)
         self.assertIn("Тихая засада", system)
         self.assertNotIn("This is the working session", system)
         self.assertNotIn("Black Widow", system)
