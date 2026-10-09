@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-SEP = "-__________________________/"
-
 RU = {
-    "sep": SEP,
     "who": "Кто занимается",
     "welcome": (
-        "-__________________________/\n\n"
-        "Ты стоишь у порога долгой подготовки.\n\n"
-        "Это не игра и не короткая зарядка. Час за часом тело станет тише, точнее и сильнее. "
-        "Спокойная школа будет беречь суставы и дыхание. Активная вырастит силу, шаг и выдержку. "
-        "Шкала длинная: до её конца доходят годами, не за один сезон.\n\n"
-        "Если готов, выбери, кем входишь.\n\n"
-        "-__________________________/"
+        "🌙 Ты стоишь у порога долгой подготовки.\n\n"
+        "Это тихая работа на годы. Час за часом тело станет точнее, выносливее и сильнее. "
+        "Спокойная школа держит дыхание и суставы. Активная растит шаг и силу.\n\n"
+        "Если готов, выбери, кем входишь."
     ),
     "calm": "Спокойная школа",
     "active": "Активная школа",
@@ -74,16 +68,12 @@ RU = {
 }
 
 EN = {
-    "sep": SEP,
     "who": "Who is training",
     "welcome": (
-        "-__________________________/\n\n"
-        "You stand at the threshold of a long preparation.\n\n"
-        "This is not a game and not a short workout. Hour by hour the body grows quieter, sharper, and stronger. "
-        "The calm school keeps the joints and the breath. The active school builds strength, step, and stamina. "
-        "The scale is long: its end takes years, not a season.\n\n"
-        "If you are ready, choose how you enter.\n\n"
-        "-__________________________/"
+        "🌙 You stand at the threshold of a long preparation.\n\n"
+        "This is quiet work measured in years. Hour by hour the body grows sharper, steadier, and stronger. "
+        "The calm school keeps the breath and the joints. The active school builds the step and the strength.\n\n"
+        "If you are ready, choose how you enter."
     ),
     "calm": "Calm school",
     "active": "Active school",

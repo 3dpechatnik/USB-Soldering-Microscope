@@ -153,9 +153,7 @@ class Service:
         return await self.i18n.t(user["language"], key, **values)
 
     async def _heading(self, user: dict, title_key: str) -> str:
-        sep = await self._t(user, "sep")
-        title = await self._t(user, title_key)
-        return f"{sep}\n{esc(title)}\n{sep}"
+        return esc(await self._t(user, title_key))
 
     async def _pack(
         self,
@@ -332,19 +330,18 @@ class Service:
         return await self._pack(user, text, actions)
 
     def _render(self, payload: dict, card: dict) -> str:
-        sep = "-__________________________/"
         if card["type"] == "title":
             return (
-                f"{sep}\n<b>{esc(payload['emoji'])}  {esc(payload['title'])}</b>\n{sep}\n\n"
+                f"<b>{esc(payload['emoji'])}  {esc(payload['title'])}</b>\n\n"
                 f"{esc(payload['opening'])}\n\n{esc(payload['level'])}\n\n{esc(payload['goal'])}"
             )
         if card["type"] == "closing":
             return (
-                f"{sep}\n<b>{esc(payload['emoji'])}  {esc(payload['title'])}</b>\n{sep}\n\n"
+                f"<b>{esc(payload['emoji'])}  {esc(payload['title'])}</b>\n\n"
                 f"{esc(payload['closing'])}\n\n{esc(payload['ask'])}"
             )
         return (
-            f"{sep}\n<i>{esc(card['part'])}</i>\n{sep}\n\n"
+            f"<i>{esc(card['part'])}</i>\n\n"
             f"<b>{esc(card['name'])}</b>\n{esc(clock(card['seconds']))}\n\n{esc(card['text'])}"
         )
 
